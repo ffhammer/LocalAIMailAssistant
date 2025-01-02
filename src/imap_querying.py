@@ -110,6 +110,10 @@ class IMAPClient:
                         logger.warning("Message-ID not found in the email headers.")
 
                 except Exception as e:
-                    logger.error(f"Failed to parse message data: {e}")        
-        return message_ids
+                    logger.error(f"Failed to parse message data: {e}")   
+                    
+        message_id_set = set(message_ids)
+        if len(message_ids) != len(message_id_set):
+            logger.warning("Imap returned duplicate messageIds")
+        return list(message_id_set)
 

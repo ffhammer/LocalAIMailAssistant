@@ -1,6 +1,6 @@
 from pydantic import BaseModel
-
-class MailMessage(BaseModel):
+from datetime import datetime
+class UnProccesedMailMessage(BaseModel):
     Id: str
     Mailbox: str
     Content: str
@@ -13,3 +13,20 @@ class MailMessage(BaseModel):
     Sender: str
     Subject: str
     Was_Replied_To: str
+    
+class ProccesedMailMessage(BaseModel):
+    Id: int
+    Mailbox: str
+    Content: str
+    Date_Received: datetime
+    Date_Sent: datetime
+    Deleted_Status: bool
+    Junk_Mail_Status: bool
+    Message_ID: str
+    Reply_To: str
+    Sender: str
+    Subject: str
+    Was_Replied_To: bool
+    
+    
+    

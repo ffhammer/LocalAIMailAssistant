@@ -15,8 +15,6 @@ settings = load_accounts("secrets/accounts.yaml")["uni"]
 
 rmtree(f"db/{settings.apple_mail_name}")
 
-MailDB.time_span_keeping_date = timedelta(
-        days=20
-    ) 
+
 db = MailDB("db", settings)
 db.update()

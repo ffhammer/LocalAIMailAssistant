@@ -1,15 +1,18 @@
 import os
 from pathlib import Path
 from datetime import datetime, timedelta
+import time
 from .accounts_loading import AccountSettings
-from .data_formats import MailMessage
+from .data_formats import UnProccesedMailMessage, ProccesedMailMessage
+from .email_cleaning import clean_email_content
 from .imap_querying import IMAPClient
 from .apple_mail_io import fetch_for_new_mail, load_mail_my_messageId
 from hashlib import sha1
 from loguru import logger
 from tqdm import tqdm
 import pandas as pd
-
+from typing import Optional
+import numpy as np
 
 class MailDB:
     last_updated_name: str = "last_updated.txt"
@@ -41,6 +44,7 @@ class MailDB:
         update_start = datetime.now()
 
         fetch_for_new_mail()
+        time.sleep(3)
 
         with IMAPClient(settings=self.settings) as client:
             new_inbox_mails = client.fetch_emails_after_date(
@@ -81,7 +85,9 @@ class MailDB:
         with open(last_updated_path, "w") as f:
             f.write(self.last_updated.isoformat())
 
+        self.meta_info.index = np.arange(len(self.meta_info))
         self.meta_info.to_csv(self.meta_info_path, index=False)
+        
 
     def clean_old_mails(self, reference_date: datetime = None):
 
@@ -102,13 +108,23 @@ class MailDB:
 
     def load_from_apple_mail_and_save(self, message_id: str, apple_mailbox: str) -> None:
 
+        if message_id in self.meta_info.Message_ID.values:
+            logger.warning(f"{message_id} alrady saved")
+            return
+
         try:
-            message: MailMessage = load_mail_my_messageId(
+            message: UnProccesedMailMessage = load_mail_my_messageId(
                 message_id, account=self.settings.apple_mail_name, mailbox=apple_mailbox
             )
         except RuntimeError as e:
             logger.info(f"Could not load message '{message_id}' from apple mail because of:\n{e}")
             return None
+        
+        if message.Message_ID != message_id:
+            logger.info(f"{message_id} could not be retrievend from apple mail")
+            return
+        
+        
         # overwrite mailbox for safety
         message.Mailbox = apple_mailbox
         message_dict = message.model_dump()
@@ -149,3 +165,41 @@ class MailDB:
             self.meta_info = pd.read_csv(
                 self.meta_info_path, parse_dates=["Date_Sent", "Date_Received"]
             )
+
+    def __len__(self):
+        return len(self.meta_info)
+
+    def __getitem__(self, index : int) -> ProccesedMailMessage:
+        
+        row = self.meta_info.iloc[index]
+        
+        with open(self.content_folder / row.Content_SHA, "r") as f:
+            content = clean_email_content(f.read())
+        
+        return ProccesedMailMessage(
+            Id = row.Id,
+            Mailbox = row.Mailbox,
+            Content = content,
+            Date_Received = row.Date_Received,
+            Date_Sent = row.Date_Sent,
+            Deleted_Status = row.Deleted_Status,
+            Junk_Mail_Status = row.Junk_Mail_Status,
+            Message_ID = row.Message_ID,
+            Reply_To = row.Reply_To,
+            Sender = row.Sender,
+            Subject = row.Subject,
+            Was_Replied_To = row.Was_Replied_To,
+        )
+        
+    def load_all_inbox_mails(self, from_date : Optional[datetime]) -> list[ProccesedMailMessage]:
+        
+        inbox_name = self.settings.apple_mail_inbox_folder
+        df = self.meta_info.copy()
+        df["original_pos"] = df.index.copy()
+        df = df.query("Mailbox == @inbox_name")
+        if from_date is not None:
+            df = df.loc[self.meta_info.Date_Sent > from_date]
+        
+        sorted_index = df.sort_values("Date_Sent", ascending=False).original_pos.values
+        return [self[i] for i in sorted_index]
+        

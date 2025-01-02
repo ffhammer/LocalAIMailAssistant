@@ -11,6 +11,7 @@ class AccountSettings(BaseModel):
     imap_sent_folder : str
     apple_mail_inbox_folder : str
     apple_mail_sent_folder : str
+    user_for_mail : str
     input_port : Optional[int] = 993 # default for imapblib
     def __repr__(self):
         return (

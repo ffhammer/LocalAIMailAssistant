@@ -1,6 +1,6 @@
 import subprocess
 from typing import List
-from .data_formats import MailMessage
+from .data_formats import UnProccesedMailMessage
 
 
 def run_apple_script(script: str) -> str:
@@ -82,7 +82,7 @@ def get_all_mail_ids(account: str, mailbox: str) -> List[str]:
 
 def load_mail_from_apple_mail(
     email_id: int, account: str, mailbox: str, id_key: str = "id"
-) -> MailMessage:
+) -> UnProccesedMailMessage:
     """
     Loads a mail message by its ID from the specified account using AppleScript.
     """
@@ -121,7 +121,7 @@ def load_mail_from_apple_mail(
 
     message_data = {key: value for key, value in zip(fields.keys(), parts)}
 
-    return MailMessage(
+    return UnProccesedMailMessage(
         Id=message_data["Id"],
         Mailbox=message_data["Mailbox"],
         Content=message_data["Content"],
@@ -191,7 +191,7 @@ def fetch_for_new_mail():
     except RuntimeError as e:
         return RuntimeError(f"Could not fetch for new mails because of: {e}")
 
-def load_mail_my_messageId(email_id: int, account: str, mailbox: str) -> MailMessage:
+def load_mail_my_messageId(email_id: int, account: str, mailbox: str) -> UnProccesedMailMessage:
     return load_mail_from_apple_mail(
         email_id=email_id, account=account, mailbox=mailbox, id_key="message id"
     )
