@@ -195,15 +195,34 @@ def load_mail_my_messageId(email_id: int, account: str, mailbox: str) -> UnProcc
     return load_mail_from_apple_mail(
         email_id=email_id, account=account, mailbox=mailbox, id_key="message id"
     )
+    
+    
+def escape_applescript_string(text: str) -> str:
+    """
+    Escapes problematic characters in a string for use in AppleScript.
+    """
+    if not isinstance(text, str):
+        raise ValueError("Content must be a string")
+    return text.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
-# script = f"""
-# tell application "Mail"
-#     set targetMessage to the first message of inbox whose id is {message_id}
-#     set replyMessage to reply targetMessage
-#     tell replyMessage
-#         set content to "{content}"
-#         set visible to true
-#     end tell
-# end tell
-# """
+def load_reply_window_for_message(apple_mail_id: int, content: str, account: str, mailbox: str):
+    """
+    Loads a reply window for a given message, safely handling problematic content strings.
+    """
+    sanitized_content = escape_applescript_string(content)
+        
+    return run_apple_script(f"""
+tell application "Mail"
+{apple_script_snippet_choose_acount_and_mailbox(account=account, mailbox=mailbox)}
+    set targetMessage to the first message of targetMailbox whose id is {apple_mail_id}
+    set replyMessage to reply targetMessage
+    tell replyMessage
+        set content to "{sanitized_content}"
+        set visible to true
+    end tell
+end tell
+""")
+        
+
+
