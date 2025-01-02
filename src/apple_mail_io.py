@@ -13,7 +13,7 @@ def run_apple_script(script: str) -> str:
     )
     out, err = process.communicate(script)
     if process.returncode != 0:
-        raise RuntimeError(f"AppleScript error: {err} for script {script}")
+        raise RuntimeError(f"AppleScript error: {err}")
     return out.strip()
 
 

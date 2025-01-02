@@ -1,13 +1,11 @@
 import imaplib
 from datetime import datetime
-from pydantic import BaseModel
 from typing import Optional
 from .accounts_loading import AccountSettings
-
-
-class SimpleMailInformation(BaseModel):
-    email_id: str
-    sent_date: datetime
+from loguru import logger
+from tqdm import tqdm
+import email
+from email.policy import default
 
 
 class IMAPClient:
@@ -48,24 +46,21 @@ class IMAPClient:
             except Exception as e:
                 print(f"Error while logging out: {e}")
 
-    def __del__(self):
-        """Ensure proper cleanup when the object is deleted."""
-        self.logout()
 
     def fetch_emails_after_date(
-        self, mailbox: str = "INBOX", after_date: Optional[datetime] = None, batch_size: int = 5
-    ) -> list[SimpleMailInformation]:
+            self, mailbox: str = "INBOX", after_date: Optional[datetime] = None, batch_size: int = 5
+        ) -> list[str]:
         """
         Fetch emails after a certain date from the specified mailbox.
 
         :param mailbox: Mailbox name (e.g., "INBOX").
         :param after_date: Fetch emails received after this date.
         :param batch_size: Number of emails to fetch in a single batch.
-        :return: List of SimpleMailInformation objects with email_id and sent_date.
+        :return: List of email Message-IDs.
         """
         if self.mail is None:
-            return PermissionError("you need to call the server as an context")
-        
+            return PermissionError("You need to call the server as a context")
+
         # Select the mailbox
         self.mail.select(mailbox)
 
@@ -82,32 +77,39 @@ class IMAPClient:
             raise Exception("Failed to fetch emails")
 
         email_ids = data[0].split()
-        messages = []  # Store (Message-ID, Date) tuples
+        message_ids = []  # Store Message-IDs
 
         # Fetch email headers in batches
-        for i in range(0, len(email_ids), batch_size):
+        for i in tqdm(range(0, len(email_ids), batch_size), desc = "Load New Messages from Imap server"):
             batch = email_ids[i:i + batch_size]  # Get the current batch
             batch_str = ','.join(batch.decode('utf-8') for batch in batch)  # Convert to string
-            result, msg_data = self.mail.fetch(batch_str, "(BODY[HEADER.FIELDS (MESSAGE-ID DATE)])")
+            result, msg_data = self.mail.fetch(batch_str,'(BODY[HEADER.FIELDS (MESSAGE-ID)])')
+            
+            if len(batch) * 2!= len(msg_data):
+                raise ValueError("expected twice as many responses as msg data")
+            
+            for msg_tuple in msg_data[::2]:
+                # Ensure the response is a tuple
+                if not isinstance(msg_tuple, tuple):
+                    logger.warning(f"Unexpected response format: {msg_tuple}")
+                    continue
 
-            if result == "OK":
-                for response in msg_data:
-                    if isinstance(response, tuple):
-                        # Extract and clean Message-ID and Date headers
-                        headers = response[1].decode("utf-8")
-                        message_id = None
-                        date = None
+                # Extract the raw email header data
+                raw_email_data = msg_tuple[1]
 
-                        for line in headers.splitlines():
-                            if line.startswith("Message-ID:"):
-                                message_id = line.replace("Message-ID:", "").strip().strip("<>")
-                            elif line.startswith("Date:"):
-                                date_str = line.replace("Date:", "").strip()
-                                normalized_date_str = date_str.split(" (")[0]  # Remove any text after '('
-                                # Parse using strptime
-                                date = datetime.strptime(normalized_date_str, '%a, %d %b %Y %H:%M:%S %z')
+                try:
+                    # Parse the email using the modern email library
+                    msg_obj = email.message_from_bytes(raw_email_data, policy=default)
+                    message_id = msg_obj.get("Message-ID").strip().lstrip("<").rstrip(">")
+                    
+                    if message_id:
+                        # Clean up the Message-ID if necessary
+                        message_id = message_id.strip("<>")
+                        message_ids.append(message_id)
+                    else:
+                        logger.warning("Message-ID not found in the email headers.")
 
-                        if message_id and date:
-                            messages.append(SimpleMailInformation(email_id=message_id, sent_date=date))
+                except Exception as e:
+                    logger.error(f"Failed to parse message data: {e}")        
+        return message_ids
 
-        return messages
