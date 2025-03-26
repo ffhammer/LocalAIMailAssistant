@@ -11,6 +11,24 @@ from .message import MailMessage
 from .accounts_loading import AccountSettings
 
 
+class EmailChatSQL(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email_message_id: str = Field(index=True, unique=True)
+    chat_json: str  # stored as JSON blob
+
+
+class EmailSummarySQL(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email_message_id: str = Field(index=True, unique=True)
+    summary_text: str
+
+
+class ReplyDraftSQL(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email_message_id: str = Field(index=True, unique=True)
+    draft_text: str
+
+
 class MailMessageSQL(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     mailbox: str
@@ -99,9 +117,11 @@ class MailDB:
             session.refresh(orm_obj)
         return orm_obj
 
-    def get_email_by_id(self, email_id: int) -> Optional[MailMessage]:
+    def get_email_by_message_id(self, email_id: str) -> Optional[MailMessage]:
         with Session(self.engine) as session:
-            statement = select(MailMessageSQL).where(MailMessageSQL.id == email_id)
+            statement = select(MailMessageSQL).where(
+                MailMessageSQL.message_id == email_id
+            )
             val = session.exec(statement).first()
         return None if val is None else sql_message_to_standard_message(val)
 

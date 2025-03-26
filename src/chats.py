@@ -1,7 +1,9 @@
+from .config import DRAFT_MODEL
 from ollama import chat
 from pydantic import BaseModel
 from datetime import datetime
 from typing import List
+from .message import MailMessage
 
 
 class ChatEntry(BaseModel):
@@ -14,10 +16,20 @@ class EmailChat(BaseModel):
     entries: List[ChatEntry]
 
 
-def generate_email_chat_with_ollama(email_text: str, model: str) -> EmailChat:
+def generate_email_chat_with_ollama(message: MailMessage) -> EmailChat:
+    if message.Reply_To is None:
+        return EmailChat(
+            [
+                ChatEntry(
+                    author=message.Sender,
+                    date_sent=message.Date_Sent,
+                    enty_content=message.Content,
+                )
+            ]
+        )
 
     response = chat(
-        model=model,
+        model=DRAFT_MODEL,
         messages=[
             {
                 "role": "user",
@@ -28,7 +40,7 @@ def generate_email_chat_with_ollama(email_text: str, model: str) -> EmailChat:
                     " - author: sender's email\n"
                     " - date_sent: ISO 8601 timestamp\n"
                     " - entry_content: message body without quoted text\n\n"
-                    f"<mailContent>{email_text}</mailContent>"
+                    f"<mailContent>{message.Content}</mailContent>"
                 ),
             }
         ],
