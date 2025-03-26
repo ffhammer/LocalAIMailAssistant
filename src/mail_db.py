@@ -14,6 +14,7 @@ import pandas as pd
 from typing import Optional
 import numpy as np
 
+
 class MailDB:
     last_updated_name: str = "last_updated.txt"
     content_folder_name: str = "contents"
@@ -61,21 +62,29 @@ class MailDB:
         if len(new_sent_mails) == 0 and len(new_inbox_mails) == 0:
             return
 
-        for messageId in tqdm(new_inbox_mails, desc="Loading and saving new apple mail inbox"):
+        for messageId in tqdm(
+            new_inbox_mails, desc="Loading and saving new apple mail inbox"
+        ):
 
             if messageId in self.meta_info.Message_ID:
                 logger.info(f"'{messageId}' already saved")
                 continue
 
-            self.load_from_apple_mail_and_save(messageId, self.settings.apple_mail_inbox_folder)
+            self.load_from_apple_mail_and_save(
+                messageId, self.settings.apple_mail_inbox_folder
+            )
 
-        for messageId in tqdm(new_sent_mails, desc="Loading and saving new apple mail sent"):
+        for messageId in tqdm(
+            new_sent_mails, desc="Loading and saving new apple mail sent"
+        ):
 
             if messageId in self.meta_info.Message_ID:
                 logger.info(f"'{messageId}' already saved")
                 continue
 
-            self.load_from_apple_mail_and_save(messageId, self.settings.apple_mail_sent_folder)
+            self.load_from_apple_mail_and_save(
+                messageId, self.settings.apple_mail_sent_folder
+            )
 
         self.clean_old_mails()
 
@@ -87,14 +96,15 @@ class MailDB:
 
         self.meta_info.index = np.arange(len(self.meta_info))
         self.meta_info.to_csv(self.meta_info_path, index=False)
-        
 
     def clean_old_mails(self, reference_date: datetime = None):
 
         if reference_date is None:
             reference_date = datetime.now()
 
-        drop_mask = self.meta_info.Date_Sent < (reference_date - self.time_span_keeping_date)
+        drop_mask = self.meta_info.Date_Sent < (
+            reference_date - self.time_span_keeping_date
+        )
 
         for content_sha in self.meta_info.loc[drop_mask, "Content_SHA"].values:
 
@@ -106,7 +116,9 @@ class MailDB:
 
         self.meta_info = self.meta_info[~drop_mask]
 
-    def load_from_apple_mail_and_save(self, message_id: str, apple_mailbox: str) -> None:
+    def load_from_apple_mail_and_save(
+        self, message_id: str, apple_mailbox: str
+    ) -> None:
 
         if message_id in self.meta_info.Message_ID.values:
             logger.warning(f"{message_id} alrady saved")
@@ -117,26 +129,35 @@ class MailDB:
                 message_id, account=self.settings.apple_mail_name, mailbox=apple_mailbox
             )
         except RuntimeError as e:
-            logger.info(f"Could not load message '{message_id}' from apple mail because of:\n{e}")
+            logger.info(
+                f"Could not load message '{message_id}' from apple mail because of:\n{e}"
+            )
             return None
-        
+
         if message.Message_ID != message_id:
             logger.info(f"{message_id} could not be retrievend from apple mail")
             return
-        
-        
+
         # overwrite mailbox for safety
         message.Mailbox = apple_mailbox
         message_dict = message.model_dump()
         message_dict["Content_SHA"] = sha1(str(message.Message_ID).encode()).hexdigest()
-        message_dict["Date_Sent"] = pd.to_datetime(message_dict["Date_Sent"], format="%A, %d. %B %Y at %H:%M:%S")
-        message_dict["Date_Received"] = pd.to_datetime(message_dict["Date_Received"], format="%A, %d. %B %Y at %H:%M:%S")
+        message_dict["Date_Sent"] = pd.to_datetime(
+            message_dict["Date_Sent"], format="%A, %d. %B %Y at %H:%M:%S"
+        )
+        message_dict["Date_Received"] = pd.to_datetime(
+            message_dict["Date_Received"], format="%A, %d. %B %Y at %H:%M:%S"
+        )
 
-        with open(self.content_folder / message_dict["Content_SHA"], "w", encoding="utf-8") as f:
+        with open(
+            self.content_folder / message_dict["Content_SHA"], "w", encoding="utf-8"
+        ) as f:
             f.write(str(message.Content))
 
         new_row = pd.Series({row: message_dict[row] for row in self.csv_columns})
-        self.meta_info = pd.concat([self.meta_info, pd.DataFrame([new_row])], ignore_index=True)
+        self.meta_info = pd.concat(
+            [self.meta_info, pd.DataFrame([new_row])], ignore_index=True
+        )
 
     def __init__(self, base_dir: str, settings: AccountSettings):
         self.settings: AccountSettings = settings
@@ -169,37 +190,45 @@ class MailDB:
     def __len__(self):
         return len(self.meta_info)
 
-    def __getitem__(self, index : int) -> ProccesedMailMessage:
-        
+    def __getitem__(self, index: int) -> ProccesedMailMessage:
+
         row = self.meta_info.iloc[index]
-        
+
         with open(self.content_folder / row.Content_SHA, "r") as f:
             content = clean_email_content(f.read())
-        
+
         return ProccesedMailMessage(
-            Id = row.Id,
-            Mailbox = row.Mailbox,
-            Content = content,
-            Date_Received = row.Date_Received,
-            Date_Sent = row.Date_Sent,
-            Deleted_Status = row.Deleted_Status,
-            Junk_Mail_Status = row.Junk_Mail_Status,
-            Message_ID = row.Message_ID,
-            Reply_To = row.Reply_To,
-            Sender = row.Sender,
-            Subject = row.Subject,
-            Was_Replied_To = row.Was_Replied_To,
+            Id=row.Id,
+            Mailbox=row.Mailbox,
+            Content=content,
+            Date_Received=row.Date_Received,
+            Date_Sent=row.Date_Sent,
+            Deleted_Status=row.Deleted_Status,
+            Junk_Mail_Status=row.Junk_Mail_Status,
+            Message_ID=row.Message_ID,
+            Reply_To=row.Reply_To,
+            Sender=row.Sender,
+            Subject=row.Subject,
+            Was_Replied_To=row.Was_Replied_To,
         )
-        
-    def load_all_inbox_mails(self, from_date : Optional[datetime]) -> list[ProccesedMailMessage]:
-        
+
+    @property
+    def inbox_df(self) -> pd.DataFrame:
+        inbox_name = self.settings.apple_mail_inbox_folder
+        return self.meta_info.query("Mailbox == @inbox_name").copy()
+
+    # def get_code
+
+    def load_all_inbox_mails(
+        self, from_date: Optional[datetime]
+    ) -> list[ProccesedMailMessage]:
+
         inbox_name = self.settings.apple_mail_inbox_folder
         df = self.meta_info.copy()
         df["original_pos"] = df.index.copy()
         df = df.query("Mailbox == @inbox_name")
         if from_date is not None:
             df = df.loc[self.meta_info.Date_Sent > from_date]
-        
+
         sorted_index = df.sort_values("Date_Sent", ascending=False).original_pos.values
         return [self[i] for i in sorted_index]
-        
