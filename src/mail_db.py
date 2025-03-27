@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 import os
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -11,6 +12,7 @@ from .message import MailMessage
 from .accounts_loading import AccountSettings
 from .chats import EmailChat, generate_email_chat_with_ollama, generate_default_chat
 from .summary import generate_summary
+from .imap_querying import IMAPClient
 
 
 class EmailChatSQL(SQLModel, table=True):
@@ -34,6 +36,11 @@ class ReplyDraftSQL(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     email_message_id: str = Field(index=True, unique=True)
     draft_text: str
+
+
+class UpdateStatus(BaseModel):
+    last_update: datetime
+    highest_uid: int
 
 
 class MailMessageSQL(SQLModel, table=True):
@@ -82,8 +89,62 @@ class MailDB:
         self.sql_folder = self.path / "sql"
         self.sql_folder.mkdir(exist_ok=True)
         self.db_path = self.sql_folder / "mail.db"
+        self.last_update_info = self.path / "update_info.json"
         self.engine = create_engine(f"sqlite:///{self.db_path}", echo=False)
         SQLModel.metadata.create_all(self.engine)
+
+    def fetch_new_mails(self, after_date: Optional[datetime] = None):
+        """this can be better by only fetching the uids which are not saved already"""
+
+        start_to_update = datetime.now()
+
+        # If after_date is not provided, try to get it from the UpdateStatusSQL record.
+        if after_date is None:
+            status = self.get_update_status()
+            if status:
+                after_date = status.last_updated
+            else:
+                # Default to 7 days ago if no update status exists.
+                after_date = datetime.now() - timedelta(days=60)
+
+        with IMAPClient(settings=self.settings) as client:
+            new_mail_ids = client.fetch_uids_after_date(after_date=after_date)
+            highest_uid = 0
+
+            for uid in new_mail_ids:
+                mail = client.fetch_email_by_uid(uid)
+                if mail is None:
+                    logger.error(f"Can't fetch mail with uid {uid}")
+                    continue
+                self.save_email(mail)
+                if uid > highest_uid:
+                    highest_uid = uid
+
+            # Update the update status record
+
+            status = self.get_update_status()
+            if status is None:
+                logger.error("Failed loading status")
+                return
+
+            status.last_update = start_to_update
+            status.highest_uid = max(status.highest_uid, highest_uid)
+
+            try:
+                with open(self.last_update_info, "w") as f:
+                    f.write(status.model_dump_json())
+            except Exception as exc:
+                logger.exception(f"Failed to save the status {exc}")
+
+    def get_update_status(self) -> Optional[UpdateStatus]:
+
+        if not self.last_update_info.exists():
+            return None
+
+        try:
+            return UpdateStatus.model_validate_json(self.last_update_info.read_text())
+        except Exception as exc:
+            logger.exception(f"Parsing update status failed with: {exc}")
 
     def save_email(self, email_obj: MailMessage) -> Optional[MailMessageSQL]:
         content_sha = sha1(str(email_obj.Message_ID).encode()).hexdigest()
@@ -177,6 +238,13 @@ class MailDB:
         return summary.summary_text
 
     def get_mail_chat(self, email_id: str) -> Optional[EmailChat]:
+
+        mail: Optional[MailMessage] = self.get_email_by_message_id(email_id)
+        if mail is None:
+            raise ValueError(f"Mail with Message_ID {email_id} not found.")
+
+        if mail.Reply_To is None:
+            return generate_default_chat(mail)
 
         with Session(self.engine) as session:
             statement = select(EmailChatSQL).where(

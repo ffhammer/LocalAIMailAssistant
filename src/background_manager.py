@@ -90,7 +90,7 @@ class BackgroundTaskManager:
             statuses = session.exec(statement).all()
         return [JobStatus.from_sql_model(status=status) for status in statuses]
 
-    async def add_job(
+    def add_job(
         self, job_type: JOB_TYPE, email_message_id: str, account_id: str
     ) -> JobStatusSQL:
 
@@ -154,8 +154,6 @@ class BackgroundTaskManager:
 
         if pending_jobs:
             logger.info(f"Processing {len(pending_jobs)} pending '{job_type}' jobs.")
-        else:
-            logger.info(f"No pending '{job_type}' jobs found.")
 
         for job in pending_jobs:
             await self.run_job(job)
