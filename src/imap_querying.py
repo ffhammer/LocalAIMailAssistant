@@ -1,11 +1,12 @@
+import email
 import imaplib
 from datetime import datetime
-from typing import Optional
-from .accounts_loading import AccountSettings
-from loguru import logger
-from tqdm import tqdm
-import email
 from email.policy import default
+from typing import Optional
+
+from loguru import logger
+
+from .accounts_loading import AccountSettings
 from .message import MailMessage, parse_processed_email
 
 
@@ -55,7 +56,6 @@ class IMAPClient:
         self, mailbox: str = "INBOX", after_date: Optional[datetime] = None
     ) -> list[int]:
         if mailbox not in self.list_mailboxes():
-
             raise ValueError("mailbox is not found")
         if self.mail is None:
             raise PermissionError("You need to call the server as a context")
@@ -107,7 +107,6 @@ class IMAPClient:
 
 
 def list_mailboxes_of_account(account: AccountSettings) -> Optional[list[str]]:
-
     try:
         with IMAPClient(settings=account) as client:
             return client.list_mailboxes()

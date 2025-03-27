@@ -1,11 +1,11 @@
 import json
-from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel
+from typing import List, Optional
+
 from ollama import chat
-from .config import DRAFT_GENERATOR_MODEL_NAME
-from .chats import EmailChat
 from sqlmodel import Field, SQLModel
+
+from .chats import EmailChat
+from .config import DRAFT_GENERATOR_MODEL_NAME
 
 
 class EmailDraft(SQLModel):

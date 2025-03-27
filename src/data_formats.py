@@ -1,5 +1,8 @@
-from pydantic import BaseModel
 from datetime import datetime
+
+from pydantic import BaseModel
+
+
 class UnProccesedMailMessage(BaseModel):
     Id: str
     Mailbox: str
@@ -13,7 +16,8 @@ class UnProccesedMailMessage(BaseModel):
     Sender: str
     Subject: str
     Was_Replied_To: str
-    
+
+
 class ProccesedMailMessage(BaseModel):
     Id: int
     Mailbox: str
@@ -27,6 +31,3 @@ class ProccesedMailMessage(BaseModel):
     Sender: str
     Subject: str
     Was_Replied_To: bool
-    
-    
-    

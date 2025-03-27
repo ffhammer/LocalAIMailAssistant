@@ -1,5 +1,6 @@
 import subprocess
 from typing import List
+
 from .data_formats import UnProccesedMailMessage
 
 
@@ -191,12 +192,15 @@ def fetch_for_new_mail():
     except RuntimeError as e:
         return RuntimeError(f"Could not fetch for new mails because of: {e}")
 
-def load_mail_my_messageId(email_id: int, account: str, mailbox: str) -> UnProccesedMailMessage:
+
+def load_mail_my_messageId(
+    email_id: int, account: str, mailbox: str
+) -> UnProccesedMailMessage:
     return load_mail_from_apple_mail(
         email_id=email_id, account=account, mailbox=mailbox, id_key="message id"
     )
-    
-    
+
+
 def escape_applescript_string(text: str) -> str:
     """
     Escapes problematic characters in a string for use in AppleScript.
@@ -206,12 +210,14 @@ def escape_applescript_string(text: str) -> str:
     return text.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
-def load_reply_window_for_message(apple_mail_id: int, content: str, account: str, mailbox: str):
+def load_reply_window_for_message(
+    apple_mail_id: int, content: str, account: str, mailbox: str
+):
     """
     Loads a reply window for a given message, safely handling problematic content strings.
     """
     sanitized_content = escape_applescript_string(content)
-        
+
     return run_apple_script(f"""
 tell application "Mail"
 {apple_script_snippet_choose_acount_and_mailbox(account=account, mailbox=mailbox)}
@@ -223,6 +229,3 @@ tell application "Mail"
     end tell
 end tell
 """)
-        
-
-

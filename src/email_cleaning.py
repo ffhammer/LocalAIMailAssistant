@@ -1,6 +1,6 @@
 import html
 import unicodedata
-import re
+
 
 def clean_email_content(text):
     """
@@ -8,20 +8,21 @@ def clean_email_content(text):
     replacing problematic characters, decoding HTML entities, normalizing Unicode,
     and collapsing excessive whitespace.
     """
+
     def remove_non_printable(text):
         # Remove non-printable characters, but allow emojis and printable Unicode
-        return ''.join(
-            char if char.isprintable() or char in {'\n', '\t', '\r'} else '�'
+        return "".join(
+            char if char.isprintable() or char in {"\n", "\t", "\r"} else "�"
             for char in text
         )
 
     def replace_problematic_chars(text):
         # Replace specific problematic Unicode characters
         replacements = {
-            '\uFFFC': '',  # Object Replacement Character
-            '\uFFFD': '',  # Replacement Character
-            '\u2028': '\n',  # Line Separator
-            '\u200d': '',  # Zero Width Joiner
+            "\ufffc": "",  # Object Replacement Character
+            "\ufffd": "",  # Replacement Character
+            "\u2028": "\n",  # Line Separator
+            "\u200d": "",  # Zero Width Joiner
         }
         for char, replacement in replacements.items():
             text = text.replace(char, replacement)
@@ -33,7 +34,7 @@ def clean_email_content(text):
 
     def normalize_unicode(text):
         # Normalize the text to a standard Unicode form
-        return unicodedata.normalize('NFC', text)
+        return unicodedata.normalize("NFC", text)
 
     # Step 1: Remove non-printable characters
     text = remove_non_printable(text)

@@ -1,10 +1,12 @@
-from .config import CHAT_EXTRACTOR_MODEL_NAME
-from ollama import chat
-from pydantic import BaseModel, model_validator
+import json
 from datetime import datetime
 from typing import List
+
+from ollama import chat
+from pydantic import BaseModel, model_validator
+
+from .config import CHAT_EXTRACTOR_MODEL_NAME
 from .message import MailMessage
-import json
 
 
 class ChatEntry(BaseModel):

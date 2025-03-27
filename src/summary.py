@@ -1,7 +1,7 @@
-from .config import SUMMARY_MODEL
-from .chats import EmailChat, ChatEntry
 from ollama import chat
-from datetime import datetime
+
+from .chats import EmailChat
+from .config import SUMMARY_MODEL
 
 
 def generate_summary(email_chat: EmailChat) -> str:

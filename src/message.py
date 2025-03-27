@@ -1,8 +1,9 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional
+import email.utils
 from datetime import datetime
 from email.message import EmailMessage
-import email.utils
+from typing import Optional
+
+from pydantic import BaseModel, EmailStr
 
 
 class MailMessage(BaseModel):
