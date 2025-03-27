@@ -1,5 +1,6 @@
+chat.sh
+gpt_input.txt
 secrets
-chat_gpt_inputs
 db
 
 # Byte-compiled / optimized / DLL files

@@ -104,3 +104,12 @@ class IMAPClient:
         except Exception:
             logger.exception("get quota failed")
             return None
+
+
+def list_mailboxes_of_account(account: AccountSettings) -> Optional[list[str]]:
+
+    try:
+        with IMAPClient(settings=account) as client:
+            return client.list_mailboxes()
+    except Exception:
+        logger.exception("list_mailboxes failed")
