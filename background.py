@@ -5,20 +5,17 @@ from loguru import logger
 import sys
 
 logger.remove()
-logger.add("background.log", level="DEBUG", rotation="10 MB")
+logger.add("summary.log", level="DEBUG", rotation="10 MB")
 logger.add(sys.stdout, level="DEBUG", format="{time} {level} {message}")
 
 
-def main():
-    logger.info("Starting background email chat processor")
+logger.info("Starting background email chat processor")
 
-    settings = load_accounts("secrets/accounts.yaml")["gmx"]
-    db = MailDB("db", settings)
-    processor = BackgroundOllamaProcessor(db)
-    processor.generate_missing_chats()
+settings = load_accounts("secrets/accounts.yaml")["gmx"]
+db = MailDB("db", settings)
+processor = BackgroundOllamaProcessor(db)
+# processor.generate_missing_chats()
 
-    logger.info("Background processing complete")
+processor.generate_missing_summaries()
 
-
-if __name__ == "__main__":
-    main()
+logger.info("Background processing complete")
