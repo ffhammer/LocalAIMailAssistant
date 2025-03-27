@@ -1,6 +1,6 @@
-from .config import DRAFT_MODEL
+from .config import CHAT_EXTRACTOR_MODEL_NAME
 from ollama import chat
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from datetime import datetime
 from typing import List
 from .message import MailMessage
@@ -15,21 +15,30 @@ class ChatEntry(BaseModel):
 
 class EmailChat(BaseModel):
     entries: List[ChatEntry]
+    authors: list[str]
+
+    @model_validator(mode="before")
+    def generate_authors(cls, values):
+        if "authors" not in values:
+            authors = set()
+            for entry in values["entries"]:
+                if entry["author"]:
+                    authors.add(entry["author"])
+
+            values["authors"] = list(authors)
+        return values
 
     def format_chat_for_llm(self) -> str:
         sorted_entries = sorted(self.entries, key=lambda e: e.date_sent)
-        formatted = {
-            "chat": [
-                {
-                    "author": e.author,
-                    "date_sent": e.date_sent.isoformat(),
-                    "content": e.enty_content.strip(),
-                    "focus": i == len(sorted_entries) - 1,
-                }
-                for i, e in enumerate(sorted_entries)
-            ],
-            "instruction": "Summarize this chat focusing on the last entry, using the previous context.",
-        }
+        formatted = [
+            {
+                "author": e.author,
+                "date_sent": e.date_sent.isoformat(),
+                "content": e.enty_content.strip(),
+                "focus": i == len(sorted_entries) - 1,
+            }
+            for i, e in enumerate(sorted_entries)
+        ]
         return json.dumps(formatted, indent=2)
 
 
@@ -51,7 +60,7 @@ def generate_email_chat_with_ollama(message: MailMessage) -> EmailChat:
     assert message.Reply_To is not None
 
     response = chat(
-        model=DRAFT_MODEL,
+        model=CHAT_EXTRACTOR_MODEL_NAME,
         messages=[
             {
                 "role": "user",

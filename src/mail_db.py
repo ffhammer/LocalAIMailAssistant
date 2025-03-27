@@ -7,19 +7,22 @@ from typing import Optional, List
 import asyncio
 
 from pydantic import EmailStr
-from sqlmodel import Field, SQLModel, create_engine, Session, select
+from sqlmodel import Field, SQLModel, create_engine, Session, select, Column, JSON
 from loguru import logger
 from .message import MailMessage
 from .accounts_loading import AccountSettings
 from .chats import EmailChat, generate_email_chat_with_ollama, generate_default_chat
 from .summary import generate_summary
 from .imap_querying import IMAPClient
+from .drafts import EmailDraft, generate_draft
+from result import Ok, Err, Result, is_ok, is_err
 
 
 class EmailChatSQL(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     email_message_id: str = Field(index=True, unique=True)
-    chat_json: str  # stored as JSON blob
+    chat_json: str
+    authors: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 def sql_email_chat_to_email_chat(chat: EmailChatSQL) -> EmailChat:
@@ -245,7 +248,15 @@ class MailDB:
 
         return summary.summary_text
 
-    def get_mail_chat(self, email_id: str) -> Optional[EmailChat]:
+    def query_table(self, table_model: SQLModel, *where_clauses) -> List[SQLModel]:
+        with Session(self.engine) as session:
+            statement = select(table_model)
+            for clause in where_clauses:
+                statement = statement.where(clause)
+            results = session.exec(statement).all()
+        return list(results)
+
+    def get_mail_chat(self, email_id: str) -> Result[EmailChat, str]:
 
         mail: Optional[MailMessage] = self.get_email_by_message_id(email_id)
         if mail is None:
@@ -265,6 +276,53 @@ class MailDB:
 
         return sql_email_chat_to_email_chat(summary)
 
+    def generate_and_save_draft(self, message_id: str) -> Result[EmailDraft, str]:
+
+        mail: Optional[MailMessage] = self.get_email_by_message_id(message_id)
+        if mail is None:
+            raise ValueError(f"Mail with Message_ID {message_id} not found.")
+
+        draft_subjcet = mail.Sender  # from how the message is
+
+        existing_drafts: list[EmailDraft] = self.query_table(
+            EmailDraft, EmailDraft.message_id == message_id
+        )
+        version_number = 1
+        if existing_drafts:
+            existing_drafts.sort(key=lambda x: x.version_number)
+            version_number = existing_drafts[-1].version_number + 1
+
+        # we want other chats with the same subject  but different ids
+        context_chats: List[EmailChatSQL] = self.query_table(
+            EmailChatSQL,
+            EmailChatSQL.message_id != message_id,
+            EmailChatSQL.authors.contains([draft_subjcet]),
+        )
+
+        message_chat = self.get_mail_chat(message_id)
+        if is_err(message_chat):
+            return message_chat
+
+        try:
+
+            logger.debug(
+                f"Generating draft {version_number} {message_id}, with {len(context_chats)} context chats and {existing_drafts} existing drafts"
+            )
+
+            res = generate_draft(
+                message_id=message_id,
+                current_chat=message_chat,
+                context_chats=context_chats,
+                previous_drafts=existing_drafts,
+                version_number=version_number,
+            )
+            logger.debug(f"Succesfully generated draft {version_number} {message_id}")
+            return Ok(res)
+        except Exception as ecx:
+            msg = f"Generating draft {version_number} {message_id} failed with: {ecx}"
+            logger.exception(msg)
+            return Err(msg)
+
     def generate_and_save_chat(self, email_message_id: str) -> str:
         # Retrieve the MailMessage from the database by message_id
         mail: Optional[MailMessage] = self.get_email_by_message_id(email_message_id)
@@ -282,6 +340,7 @@ class MailDB:
                 chat_record = EmailChatSQL(
                     email_message_id=email_message_id,
                     chat_json=chat.model_dump_json(),
+                    authors=chat.authors,
                 )
                 session.add(chat_record)
                 session.commit()
