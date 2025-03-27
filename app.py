@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Optional
 import uvicorn
 
@@ -8,8 +8,7 @@ from src.accounts_loading import load_accounts
 from src.mail_db import MailDB, MailMessageSQL
 from src.ollama_background_processor import BackgroundOllamaProcessor
 from src.message import MailMessage
-from src.chats import EmailChat, generate_email_chat_with_ollama, generate_default_chat
-from src.summary import generate_summary
+from src.chats import EmailChat, generate_default_chat
 from src.imap_querying import list_mailboxes_of_account
 
 
@@ -103,6 +102,40 @@ def get_email_details(
     return email
 
 
+@app.get("/accounts/{account_id}/chats/{message_id}", response_model=EmailChat)
+def get_email_chat(
+    account_id: str,
+    message_id: str,
+):
+    if account_id not in dbs:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    db = dbs[account_id]
+
+    chat = db.get_mail_chat(email_id=message_id)
+
+    if chat is not None:
+        return chat
+
+    email = db.get_email_by_message_id(message_id)
+    if email is None:
+        raise HTTPException(status_code=404, detail="Email not found")
+
+    return generate_default_chat(email)
+
+
+@app.get("/accounts/{account_id}/summaries/{message_id}", response_model=Optional[str])
+def get_email_summary(
+    account_id: str,
+    message_id: str,
+):
+    if account_id not in dbs:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    db = dbs[account_id]
+    return db.get_mail_summary(email_id=message_id)
+
+
 @app.post("/accounts/{account_id}/emails/{message_id}/summary")
 def post_generate_summary(account_id: str, message_id: str):
     if account_id not in dbs:
@@ -117,6 +150,7 @@ def post_generate_summary(account_id: str, message_id: str):
 def post_generate_chat(account_id: str, message_id: str):
     if account_id not in dbs:
         raise HTTPException(status_code=404, detail="Account not found")
+
     processors[account_id].generate_and_save_chat(message_id)
     return JSONResponse(
         content={"message_id": message_id, "status": "Chat generation triggered."}

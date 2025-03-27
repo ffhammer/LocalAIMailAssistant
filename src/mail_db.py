@@ -9,12 +9,18 @@ from sqlmodel import Field, SQLModel, create_engine, Session, select
 from loguru import logger
 from .message import MailMessage
 from .accounts_loading import AccountSettings
+from .chats import EmailChat
 
 
 class EmailChatSQL(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     email_message_id: str = Field(index=True, unique=True)
     chat_json: str  # stored as JSON blob
+
+
+def sql_email_chat_to_email_chat(chat: EmailChatSQL) -> EmailChat:
+
+    return EmailChat.model_validate_json(chat.chat_json)
 
 
 class EmailSummarySQL(SQLModel, table=True):
@@ -147,3 +153,29 @@ class MailDB:
                     logger.error(f"Error deleting {content_path}: {e}")
                 session.delete(email_obj)
             session.commit()
+
+    def get_mail_summary(self, email_id: str) -> Optional[str]:
+
+        with Session(self.engine) as session:
+            statement = select(EmailSummarySQL).where(
+                EmailSummarySQL.email_message_id == email_id
+            )
+            summary = session.exec(statement).first()
+
+        if summary is None:
+            return None
+
+        return summary.summary_text
+
+    def get_mail_chat(self, email_id: str) -> Optional[EmailChat]:
+
+        with Session(self.engine) as session:
+            statement = select(EmailChatSQL).where(
+                EmailChatSQL.email_message_id == email_id
+            )
+            summary = session.exec(statement).first()
+
+        if summary is None:
+            return None
+
+        return sql_email_chat_to_email_chat(summary)
