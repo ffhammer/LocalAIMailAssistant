@@ -5,11 +5,12 @@ from typing import List, Optional
 import uvicorn
 
 from src.accounts_loading import load_accounts
-from src.mail_db import MailDB, MailMessageSQL
+from src.mail_db import MailDB, MailMessageSQL, EmailSummarySQL
 from src.ollama_background_processor import BackgroundOllamaProcessor
 from src.message import MailMessage
 from src.chats import EmailChat, generate_default_chat
 from src.imap_querying import list_mailboxes_of_account
+from sqlalchemy import select
 
 
 app = FastAPI(title="Local Email Summarization API")
@@ -124,6 +125,19 @@ def get_email_chat(
     return generate_default_chat(email)
 
 
+@app.get("/accounts/{account_id}/summaries/", response_model=List[str])
+def get_email_summaries(
+    account_id: str,
+):
+    if account_id not in dbs:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    db = dbs[account_id]
+    return db.query_email_ids(
+        MailMessageSQL.message_id.in_(select(EmailSummarySQL.email_message_id))
+    )
+
+
 @app.get("/accounts/{account_id}/summaries/{message_id}", response_model=Optional[str])
 def get_email_summary(
     account_id: str,
@@ -134,39 +148,6 @@ def get_email_summary(
 
     db = dbs[account_id]
     return db.get_mail_summary(email_id=message_id)
-
-
-@app.post("/accounts/{account_id}/emails/{message_id}/summary")
-def post_generate_summary(account_id: str, message_id: str):
-    if account_id not in dbs:
-        raise HTTPException(status_code=404, detail="Account not found")
-    processors[account_id].generate_and_save_summary(message_id)
-    return JSONResponse(
-        content={"message_id": message_id, "status": "Summary generation triggered."}
-    )
-
-
-@app.post("/accounts/{account_id}/emails/{message_id}/chat")
-def post_generate_chat(account_id: str, message_id: str):
-    if account_id not in dbs:
-        raise HTTPException(status_code=404, detail="Account not found")
-
-    processors[account_id].generate_and_save_chat(message_id)
-    return JSONResponse(
-        content={"message_id": message_id, "status": "Chat generation triggered."}
-    )
-
-
-@app.post("/accounts/{account_id}/emails/{message_id}/draft")
-def post_generate_draft(account_id: str, message_id: str):
-    if account_id not in dbs:
-        raise HTTPException(status_code=404, detail="Account not found")
-    return JSONResponse(
-        content={
-            "message_id": message_id,
-            "status": "Draft generation not yet implemented.",
-        }
-    )
 
 
 @app.get("/background/status", response_model=dict)
