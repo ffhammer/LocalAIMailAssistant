@@ -74,12 +74,12 @@ class IMAPClient:
         self.mail.select(mailbox)
         try:
             result, data = self.mail.uid("FETCH", str(uid), "(RFC822)")
+            if result != "OK" or not data or not isinstance(data[0], tuple):
+                return None
+            msg = email.message_from_bytes(data[0][1], policy=default)
         except TimeoutError:
             logger.error(f"received timeout error for uid: '{uid}'")
 
-        if result != "OK" or not data or not isinstance(data[0], tuple):
-            return None
-        msg = email.message_from_bytes(data[0][1], policy=default)
         return parse_processed_email(msg, mailbox, uid)
 
     def list_mailboxes(self) -> list[str]:

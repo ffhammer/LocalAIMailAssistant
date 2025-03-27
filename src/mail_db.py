@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from hashlib import sha1
 from typing import Optional, List
+import asyncio
 
 from pydantic import EmailStr
 from sqlmodel import Field, SQLModel, create_engine, Session, select
@@ -40,7 +41,6 @@ class ReplyDraftSQL(SQLModel, table=True):
 
 class UpdateStatus(BaseModel):
     last_update: datetime
-    highest_uid: int
 
 
 class MailMessageSQL(SQLModel, table=True):
@@ -93,48 +93,56 @@ class MailDB:
         self.engine = create_engine(f"sqlite:///{self.db_path}", echo=False)
         SQLModel.metadata.create_all(self.engine)
 
-    def fetch_new_mails(self, after_date: Optional[datetime] = None):
-        """this can be better by only fetching the uids which are not saved already"""
+    async def fetch_and_save_mails(self, uids: List[int], mailbox: str):
+        """Async generator: for each UID, fetch and save the mail, then yield the UID."""
+        with IMAPClient(settings=self.settings) as client:
+            for uid in uids:
+                # Offload the blocking fetch operation
+                mail = await asyncio.to_thread(client.fetch_email_by_uid, uid, mailbox)
+                if mail is None:
+                    logger.error(f"Can't fetch mail with uid {uid}")
+                    continue
+                # Save email offloaded as well
+                logger.debug(f"Succesfully saved email with uid {uid}")
+                await asyncio.to_thread(self.save_email, mail)
+                yield mail.Message_ID
 
+    async def refresh_mailbox(
+        self, mailbox: str, after_date: Optional[datetime] = None
+    ):
+        """Async generator: refresh mailbox and yield each new UID as it’s saved."""
         start_to_update = datetime.now()
-
-        # If after_date is not provided, try to get it from the UpdateStatusSQL record.
         if after_date is None:
             status = self.get_update_status()
             if status:
                 after_date = status.last_updated
             else:
-                # Default to 7 days ago if no update status exists.
                 after_date = datetime.now() - timedelta(days=60)
 
         with IMAPClient(settings=self.settings) as client:
-            new_mail_ids = client.fetch_uids_after_date(after_date=after_date)
-            highest_uid = 0
+            new_mail_ids = client.fetch_uids_after_date(
+                after_date=after_date, mailbox=mailbox
+            )
 
-            for uid in new_mail_ids:
-                mail = client.fetch_email_by_uid(uid)
-                if mail is None:
-                    logger.error(f"Can't fetch mail with uid {uid}")
-                    continue
-                self.save_email(mail)
-                if uid > highest_uid:
-                    highest_uid = uid
+        with Session(self.engine) as session:
+            already_saved = session.exec(select(MailMessageSQL.imap_uid)).all()
 
-            # Update the update status record
+        to_do = list(set(new_mail_ids).difference(already_saved))
+        logger.info(f"Fetching these uids {to_do}")
+        # Yield each message_id as soon as it’s processed.
+        async for message_id in self.fetch_and_save_mails(to_do, mailbox):
+            yield message_id
 
-            status = self.get_update_status()
-            if status is None:
-                logger.error("Failed loading status")
-                return
-
+        status = self.get_update_status()
+        if status is None:
+            status = UpdateStatus(last_update=start_to_update)
+        else:
             status.last_update = start_to_update
-            status.highest_uid = max(status.highest_uid, highest_uid)
-
             try:
                 with open(self.last_update_info, "w") as f:
                     f.write(status.model_dump_json())
             except Exception as exc:
-                logger.exception(f"Failed to save the status {exc}")
+                logger.exception(f"Failed to save the status: {exc}")
 
     def get_update_status(self) -> Optional[UpdateStatus]:
 

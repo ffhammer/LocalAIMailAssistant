@@ -1,12 +1,19 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from datetime import datetime
 from typing import List, Optional
 import uvicorn
 from loguru import logger
+from pydantic import BaseModel
 
 from src.accounts_loading import load_accounts
-from src.mail_db import MailDB, MailMessageSQL, EmailSummarySQL, EmailChatSQL
+from src.mail_db import (
+    MailDB,
+    MailMessageSQL,
+    EmailSummarySQL,
+    EmailChatSQL,
+    UpdateStatus,
+)
 from src.message import MailMessage
 from src.chats import EmailChat, generate_default_chat
 from src.imap_querying import list_mailboxes_of_account
@@ -21,6 +28,8 @@ from sqlalchemy import select
 import asyncio
 
 from contextlib import asynccontextmanager
+
+logger.level("DEBUG")
 
 # Load accounts from configuration (assumes a YAML file with multiple accounts)
 accounts = load_accounts("secrets/accounts.yaml")
@@ -179,6 +188,7 @@ def generate_email_summary(account_id: str, message_id: str):
 
 @app.post("/accounts/{account_id}/summaries/generate")
 def generate_email_summaries(account_id: str):
+    """Generate all open summaries"""
     if account_id not in dbs:
         raise HTTPException(status_code=404, detail="Account not found")
 
@@ -210,6 +220,7 @@ def generate_email_chat(account_id: str, message_id: str):
 
 @app.post("/accounts/{account_id}/chats/generate")
 def generate_email_chats(account_id: str):
+    """Generate all open chats"""
     if account_id not in dbs:
         raise HTTPException(status_code=404, detail="Account not found")
 
@@ -250,6 +261,40 @@ def get_background_status(
         )
 
     return background_manager.query_status(*args)
+
+
+@app.get("/accounts/{account_id}/status/", response_model=Optional[UpdateStatus])
+def get_last_update_status(account_id: str):
+    if account_id not in dbs:
+        raise HTTPException(status_code=404, detail="Account not found")
+    db = dbs[account_id]
+    return db.get_update_status()
+
+
+@app.post(
+    "/accounts/{account_id}/update",
+    response_class=StreamingResponse,
+    response_description="A stream of message_ids for each succesfully saved new mail",
+)
+async def post_update_account(
+    account_id: str, mailbox: str, after_date: Optional[datetime] = None
+):
+    if account_id not in dbs:
+        raise HTTPException(status_code=404, detail="Account not found")
+    if mailbox not in list_mailboxes_of_account(accounts[account_id]):
+        raise HTTPException(status_code=404, detail="Mailbox not found")
+
+    db = dbs[account_id]
+
+    async def event_generator():
+        async for message_id in db.refresh_mailbox(
+            mailbox=mailbox, after_date=after_date
+        ):
+            logger.debug(f"yielding new message {message_id}")
+            yield f"data: {message_id}\n\n"
+            await asyncio.sleep(0.02)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 if __name__ == "__main__":
