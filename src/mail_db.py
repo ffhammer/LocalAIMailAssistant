@@ -189,12 +189,11 @@ class MailDB:
 
         return sql_email_chat_to_email_chat(summary)
 
-    def generate_and_save_chat(self, email_message_id: str) -> None:
+    def generate_and_save_chat(self, email_message_id: str) -> str:
         # Retrieve the MailMessage from the database by message_id
         mail: Optional[MailMessage] = self.get_email_by_message_id(email_message_id)
         if mail is None:
-            logger.error(f"Mail with Message_ID {email_message_id} not found.")
-            return
+            raise ValueError(f"Mail with Message_ID {email_message_id} not found.")
 
         try:
             logger.debug(
@@ -210,13 +209,15 @@ class MailDB:
                 )
                 session.add(chat_record)
                 session.commit()
-                logger.info(f"Saved chat for Message_ID {email_message_id}.")
+            logger.info(f"Saved chat for Message_ID {email_message_id}.")
+            return f"Chat saved successfully for {email_message_id}."
         except Exception as exc:
             logger.exception(
                 f"Failed to generate chat for Message_ID {email_message_id}: {exc}"
             )
+            raise RuntimeError(f"Chat generation failed for {email_message_id}: {exc}")
 
-    def generate_and_save_summary(self, email_message_id: str) -> None:
+    def generate_and_save_summary(self, email_message_id: str) -> str:
         # Check if a summary already exists for this email
         with Session(self.engine) as session:
             existing_summary = session.exec(
@@ -228,7 +229,7 @@ class MailDB:
                 logger.info(
                     f"Summary already exists for Message_ID {email_message_id}."
                 )
-                return
+                return f"Summary already exists for {email_message_id}."
 
         # Attempt to retrieve a chat for this email
         chat: Optional[EmailChat] = None
@@ -245,22 +246,21 @@ class MailDB:
                     logger.error(
                         f"Failed to parse chat JSON for Message_ID {email_message_id}: {e}"
                     )
-                    return
+                    raise ValueError(
+                        f"Chat JSON parse error for {email_message_id}: {e}"
+                    )
 
         # If no chat exists, try to generate a default chat from the mail
         if chat is None:
-            mail: Optional[MailMessage] = self.mail_db.get_email_by_message_id(
-                email_message_id
-            )
+            mail: Optional[MailMessage] = self.get_email_by_message_id(email_message_id)
             if mail is None:
-                logger.error(f"Mail with Message_ID {email_message_id} not found.")
-                return
+                raise ValueError(f"Mail with Message_ID {email_message_id} not found.")
             chat = generate_default_chat(mail)
 
         try:
             summary_text = generate_summary(chat)
             logger.debug(
-                f"Summary generated for {email_message_id}:\n{"-"*100}\n{summary_text}\n{"-"*100}"
+                f"Summary generated for {email_message_id}:\n{'-'*100}\n{summary_text}\n{'-'*100}"
             )
 
             with Session(self.engine) as session:
@@ -270,8 +270,12 @@ class MailDB:
                 )
                 session.add(summary_record)
                 session.commit()
-                logger.info(f"Saved summary for Message_ID {email_message_id}.")
+            logger.info(f"Saved summary for Message_ID {email_message_id}.")
+            return f"Summary saved successfully for {email_message_id}."
         except Exception as exc:
             logger.exception(
                 f"Failed to generate summary for Message_ID {email_message_id}: {exc}"
+            )
+            raise RuntimeError(
+                f"Summary generation failed for {email_message_id}: {exc}"
             )

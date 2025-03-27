@@ -5,6 +5,7 @@ from sqlmodel import Field, SQLModel, create_engine, Session, select
 from loguru import logger
 from pydantic import BaseModel
 from enum import StrEnum
+from .mail_db import MailDB
 
 
 class JOB_TYPE(StrEnum):
@@ -72,7 +73,8 @@ class JobStatus(BaseModel):
 
 
 class BackgroundTaskManager:
-    def __init__(self, base_dir: str = "db/status.sql"):
+    def __init__(self, dbs: dict[str, MailDB], base_dir: str = "db/status.sql"):
+        self.dbs = dbs
         self.engine = create_engine(f"sqlite:///{base_dir}/status.sql", echo=False)
         SQLModel.metadata.create_all(self.engine)
 
@@ -88,12 +90,19 @@ class BackgroundTaskManager:
             statuses = session.exec(statement).all()
         return [JobStatus.from_sql_model(status=status) for status in statuses]
 
-    async def add_job(self, job_type: JOB_TYPE, email_message_id: str) -> JobStatusSQL:
+    async def add_job(
+        self, job_type: JOB_TYPE, email_message_id: str, account_id: str
+    ) -> JobStatusSQL:
+
+        if account_id not in self.dbs:
+            raise ValueError("invalid account_od")
+
         """Simply adds new job to sql"""
         job = JobStatusSQL(
             job_type=job_type,
             email_message_id=email_message_id,
             status=STATUS.pending,
+            account_id=account_id,
         )
 
         with Session(self.engine) as session:
@@ -111,14 +120,20 @@ class BackgroundTaskManager:
             session.commit()
         logger.debug(f"Updated job {job.id} to status '{job.status}'")
 
-    async def run_job(self, job: JobStatusSQL, job_func) -> None:
+    async def run_job(self, job: JobStatusSQL) -> None:
         # Mark as in_progress and update start_time
         job.status = STATUS.in_progress
         job.start_time = datetime.now()
         await self.update_job(job)
         try:
-            # Execute the job function (e.g. generate_summary)
-            result = await job_func(job.email_message_id)
+            job_funcs = {
+                JOB_TYPE.summary: self.dbs[job.account_id].generate_and_save_summary,
+                JOB_TYPE.chat: self.dbs[job.account_id].generate_and_save_chat,
+            }
+
+            result = await asyncio.to_thread(
+                job_funcs[job.job_type](job.email_message_id)
+            )
             job.output = result
             job.status = STATUS.completed
         except Exception as exc:
@@ -129,7 +144,7 @@ class BackgroundTaskManager:
             job.end_time = datetime.now()
             await self.update_job(job)
 
-    async def process_pending_jobs(self, job_type: JOB_TYPE, job_func) -> None:
+    async def process_pending_jobs(self, job_type: JOB_TYPE) -> None:
         with Session(self.engine) as session:
             stmt = select(JobStatusSQL).where(
                 JobStatusSQL.job_type == job_type,
@@ -143,16 +158,16 @@ class BackgroundTaskManager:
             logger.info(f"No pending '{job_type}' jobs found.")
 
         for job in pending_jobs:
-            await self.run_job(job, job_func)
+            await self.run_job(job)
 
     async def run(self):
         while True:
 
             await self.process_pending_jobs(
-                JOB_TYPE.chat, self.generate_summary_job
+                JOB_TYPE.chat
             )  # ignore the palcehodel func here!
             await self.process_pending_jobs(
-                JOB_TYPE.summary, self.generate_summary_job
+                JOB_TYPE.summary
             )  # ignore the palcehodel func here!
             # await self.process_pending_jobs(JOB_TYPE.draft, self.generate_summary_job)
             await asyncio.sleep(5)
