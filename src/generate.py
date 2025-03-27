@@ -87,7 +87,7 @@ def generate_and_save_summary(db: MailDB, email_message_id: str) -> Result[str, 
 def generate_and_save_draft(self, message_id: str) -> Result[EmailDraft, str]:
     mail: Optional[MailMessage] = self.get_email_by_message_id(message_id)
     if mail is None:
-        raise return_error_and_log(f"Mail with Message_ID {message_id} not found.")
+        return return_error_and_log(f"Mail with Message_ID {message_id} not found.")
 
     draft_subjcet = mail.Sender  # from how the message is
 

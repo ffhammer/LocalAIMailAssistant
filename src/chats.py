@@ -23,9 +23,14 @@ class EmailChat(BaseModel):
     def generate_authors(cls, values):
         if "authors" not in values:
             authors = set()
+
             for entry in values["entries"]:
-                if entry["author"]:
-                    authors.add(entry["author"])
+                author = (
+                    entry.author if isinstance(entry, ChatEntry) else entry["author"]
+                )
+
+                if author:
+                    authors.add(author)
 
             values["authors"] = list(authors)
         return values

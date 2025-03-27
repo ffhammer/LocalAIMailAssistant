@@ -139,10 +139,12 @@ class BackgroundTaskManager:
         await self.update_job(job)
 
         result: Result = await asyncio.to_thread(
-            JOB_FUNCS[job.job_type](self.dbs[job.account_id], job.email_message_id)
+            JOB_FUNCS[job.job_type],
+            self.dbs[job.account_id],
+            job.email_message_id,
         )
 
-        if is_err(Result):
+        if is_err(result):
             logger.exception(f"Job {job.id} failed: {result.err()}")
             job.error_message = str(result.err())
             job.status = STATUS.failed

@@ -87,9 +87,7 @@ class MailDB:
         self.contents_folder = self.path / "contents"
         self.contents_folder.mkdir(exist_ok=True)
 
-        self.sql_folder = self.path / "sql"
-        self.sql_folder.mkdir(exist_ok=True)
-        self.db_path = self.sql_folder / "mail.db"
+        self.db_path = self.path / "mail.db"
         self.last_update_info = self.path / "update_info.json"
         self.engine = create_engine(f"sqlite:///{self.db_path}", echo=False)
         SQLModel.metadata.create_all(self.engine)
@@ -185,7 +183,7 @@ class MailDB:
         return [sql_message_to_standard_message(mail) for mail in mails]
 
     def query_email_ids(self, *where_clauses) -> List[str]:
-        return list(self.query_table(MailMessageSQL.message_id), where_clauses)
+        return list(self.query_table(MailMessageSQL.message_id, *where_clauses))
 
     def clean_old_emails(self, keep_days: int = 93) -> None:
         cutoff = datetime.now() - timedelta(days=keep_days)
@@ -212,7 +210,7 @@ class MailDB:
     def get_mail_chat(self, email_id: str) -> Result[EmailChat, str]:
         mail: Optional[MailMessage] = self.get_email_by_message_id(email_id)
         if mail is None:
-            raise return_error_and_log(f"Mail with Message_ID {email_id} not found.")
+            return return_error_and_log(f"Mail with Message_ID {email_id} not found.")
 
         if mail.Reply_To is None:
             return Ok(generate_default_chat(mail))
