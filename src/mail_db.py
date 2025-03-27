@@ -1,21 +1,20 @@
-from pydantic import BaseModel
 import os
-from pathlib import Path
 from datetime import datetime, timedelta
 from hashlib import sha1
-from typing import Optional, List
-import asyncio
+from pathlib import Path
+from typing import List, Optional, TypeVar
 
-from pydantic import EmailStr
-from sqlmodel import Field, SQLModel, create_engine, Session, select, Column, JSON
 from loguru import logger
-from .message import MailMessage
+from pydantic import BaseModel, EmailStr
+from result import Ok, Result
+from sqlmodel import JSON, Column, Field, Session, SQLModel, create_engine, select
+
 from .accounts_loading import AccountSettings
-from .chats import EmailChat, generate_email_chat_with_ollama, generate_default_chat
-from .summary import generate_summary
-from .imap_querying import IMAPClient
-from .drafts import EmailDraft, generate_draft
-from result import Ok, Err, Result, is_ok, is_err
+from .chats import EmailChat, generate_default_chat
+from .message import MailMessage
+from .utils import return_error_and_log
+
+TABLE_TYPE = TypeVar("TABLE_TYPE", bound=SQLModel)
 
 
 class EmailChatSQL(SQLModel, table=True):
@@ -26,7 +25,6 @@ class EmailChatSQL(SQLModel, table=True):
 
 
 def sql_email_chat_to_email_chat(chat: EmailChatSQL) -> EmailChat:
-
     return EmailChat.model_validate_json(chat.chat_json)
 
 
@@ -96,59 +94,35 @@ class MailDB:
         self.engine = create_engine(f"sqlite:///{self.db_path}", echo=False)
         SQLModel.metadata.create_all(self.engine)
 
-    async def fetch_and_save_mails(self, uids: List[int], mailbox: str):
-        """Async generator: for each UID, fetch and save the mail, then yield the UID."""
-        with IMAPClient(settings=self.settings) as client:
-            for uid in uids:
-                # Offload the blocking fetch operation
-                mail = await asyncio.to_thread(client.fetch_email_by_uid, uid, mailbox)
-                if mail is None:
-                    logger.error(f"Can't fetch mail with uid {uid}")
-                    continue
-                # Save email offloaded as well
-                logger.debug(f"Succesfully saved email with uid {uid}")
-                await asyncio.to_thread(self.save_email, mail)
-                yield mail.Message_ID
-
-    async def refresh_mailbox(
-        self, mailbox: str, after_date: Optional[datetime] = None
-    ):
-        """Async generator: refresh mailbox and yield each new UID as it’s saved."""
-        start_to_update = datetime.now()
-        if after_date is None:
-            status = self.get_update_status()
-            if status:
-                after_date = status.last_updated
-            else:
-                after_date = datetime.now() - timedelta(days=60)
-
-        with IMAPClient(settings=self.settings) as client:
-            new_mail_ids = client.fetch_uids_after_date(
-                after_date=after_date, mailbox=mailbox
-            )
-
+    def query_first_item(
+        self, table: TABLE_TYPE, *where_clauses
+    ) -> Optional[TABLE_TYPE]:
         with Session(self.engine) as session:
-            already_saved = session.exec(select(MailMessageSQL.imap_uid)).all()
+            statement = select(table)
+            for clause in where_clauses:
+                statement = statement.where(clause)
 
-        to_do = list(set(new_mail_ids).difference(already_saved))
-        logger.info(f"Fetching these uids {to_do}")
-        # Yield each message_id as soon as it’s processed.
-        async for message_id in self.fetch_and_save_mails(to_do, mailbox):
-            yield message_id
+            return session.exec(statement=statement).first()
 
-        status = self.get_update_status()
-        if status is None:
-            status = UpdateStatus(last_update=start_to_update)
-        else:
-            status.last_update = start_to_update
-            try:
-                with open(self.last_update_info, "w") as f:
-                    f.write(status.model_dump_json())
-            except Exception as exc:
-                logger.exception(f"Failed to save the status: {exc}")
+    def add_values(self, values: list[TABLE_TYPE]) -> None:
+        with Session(self.engine) as session:
+            session.add_all(values)
+            session.commit()
+
+    def add_value(self, value: TABLE_TYPE) -> None:
+        with Session(self.engine) as session:
+            session.add(value)
+            session.commit()
+
+    def query_table(self, table_model: SQLModel, *where_clauses) -> List[SQLModel]:
+        with Session(self.engine) as session:
+            statement = select(table_model)
+            for clause in where_clauses:
+                statement = statement.where(clause)
+            results = session.exec(statement).all()
+        return list(results)
 
     def get_update_status(self) -> Optional[UpdateStatus]:
-
         if not self.last_update_info.exists():
             return None
 
@@ -157,7 +131,14 @@ class MailDB:
         except Exception as exc:
             logger.exception(f"Parsing update status failed with: {exc}")
 
-    def save_email(self, email_obj: MailMessage) -> Optional[MailMessageSQL]:
+    def write_update_status(self, status: UpdateStatus):
+        try:
+            with open(self.last_update_info, "w") as f:
+                f.write(status.model_dump_json())
+        except Exception as exc:
+            logger.exception(f"Failed to save the status: {exc}")
+
+    def save_email(self, email_obj: MailMessage):
         content_sha = sha1(str(email_obj.Message_ID).encode()).hexdigest()
         content_file = self.contents_folder / content_sha
 
@@ -165,19 +146,19 @@ class MailDB:
             with open(content_file, "w", encoding="utf-8") as f:
                 f.write(email_obj.Content)
 
-        with Session(self.engine) as session:
-            existing = session.exec(
-                select(MailMessageSQL).where(
-                    MailMessageSQL.message_id == email_obj.Message_ID
-                )
-            ).first()
-            if existing:
-                logger.warning(
-                    f"Email with Message_ID {email_obj.Message_ID} already saved."
-                )
-                return None
+        if (
+            self.query_first_item(
+                MailMessageSQL, MailMessageSQL.message_id == email_obj.Message_ID
+            )
+            is not None
+        ):
+            logger.warning(
+                f"Email with Message_ID {email_obj.Message_ID} already saved."
+            )
+            return None
 
-            orm_obj = MailMessageSQL(
+        self.add_value(
+            MailMessageSQL(
                 mailbox=email_obj.Mailbox,
                 content_file=str(content_file),
                 date_received=email_obj.Date_Received,
@@ -191,34 +172,20 @@ class MailDB:
                 was_replied_to=email_obj.Was_Replied_To,
                 imap_uid=email_obj.Id,
             )
-            session.add(orm_obj)
-            session.commit()
-            session.refresh(orm_obj)
-        return orm_obj
+        )
 
     def get_email_by_message_id(self, email_id: str) -> Optional[MailMessage]:
-        with Session(self.engine) as session:
-            statement = select(MailMessageSQL).where(
-                MailMessageSQL.message_id == email_id
-            )
-            val = session.exec(statement).first()
+        val = self.query_first_item(
+            MailMessageSQL, MailMessageSQL.message_id == email_id
+        )
         return None if val is None else sql_message_to_standard_message(val)
 
     def query_emails(self, *where_clauses) -> List[MailMessage]:
-        with Session(self.engine) as session:
-            statement = select(MailMessageSQL)
-            for clause in where_clauses:
-                statement = statement.where(clause)
-            mails = session.exec(statement).all()
+        mails = self.query_table(MailMessageSQL, *where_clauses)
         return [sql_message_to_standard_message(mail) for mail in mails]
 
     def query_email_ids(self, *where_clauses) -> List[str]:
-        with Session(self.engine) as session:
-            statement = select(MailMessageSQL.message_id)
-            for clause in where_clauses:
-                statement = statement.where(clause)
-            mails = session.exec(statement).all()
-        return list(mails)
+        return list(self.query_table(MailMessageSQL.message_id), where_clauses)
 
     def clean_old_emails(self, keep_days: int = 93) -> None:
         cutoff = datetime.now() - timedelta(days=keep_days)
@@ -236,34 +203,19 @@ class MailDB:
             session.commit()
 
     def get_mail_summary(self, email_id: str) -> Optional[str]:
+        summary: Optional[EmailSummarySQL] = self.query_first_item(
+            EmailSummarySQL, EmailSummarySQL.email_message_id == email_id
+        )
 
-        with Session(self.engine) as session:
-            statement = select(EmailSummarySQL).where(
-                EmailSummarySQL.email_message_id == email_id
-            )
-            summary = session.exec(statement).first()
-
-        if summary is None:
-            return None
-
-        return summary.summary_text
-
-    def query_table(self, table_model: SQLModel, *where_clauses) -> List[SQLModel]:
-        with Session(self.engine) as session:
-            statement = select(table_model)
-            for clause in where_clauses:
-                statement = statement.where(clause)
-            results = session.exec(statement).all()
-        return list(results)
+        return None if summary is None else summary.summary_text
 
     def get_mail_chat(self, email_id: str) -> Result[EmailChat, str]:
-
         mail: Optional[MailMessage] = self.get_email_by_message_id(email_id)
         if mail is None:
-            raise ValueError(f"Mail with Message_ID {email_id} not found.")
+            raise return_error_and_log(f"Mail with Message_ID {email_id} not found.")
 
         if mail.Reply_To is None:
-            return generate_default_chat(mail)
+            return Ok(generate_default_chat(mail))
 
         with Session(self.engine) as session:
             statement = select(EmailChatSQL).where(
@@ -274,143 +226,4 @@ class MailDB:
         if summary is None:
             return None
 
-        return sql_email_chat_to_email_chat(summary)
-
-    def generate_and_save_draft(self, message_id: str) -> Result[EmailDraft, str]:
-
-        mail: Optional[MailMessage] = self.get_email_by_message_id(message_id)
-        if mail is None:
-            raise ValueError(f"Mail with Message_ID {message_id} not found.")
-
-        draft_subjcet = mail.Sender  # from how the message is
-
-        existing_drafts: list[EmailDraft] = self.query_table(
-            EmailDraft, EmailDraft.message_id == message_id
-        )
-        version_number = 1
-        if existing_drafts:
-            existing_drafts.sort(key=lambda x: x.version_number)
-            version_number = existing_drafts[-1].version_number + 1
-
-        # we want other chats with the same subject  but different ids
-        context_chats: List[EmailChatSQL] = self.query_table(
-            EmailChatSQL,
-            EmailChatSQL.message_id != message_id,
-            EmailChatSQL.authors.contains([draft_subjcet]),
-        )
-
-        message_chat = self.get_mail_chat(message_id)
-        if is_err(message_chat):
-            return message_chat
-
-        try:
-
-            logger.debug(
-                f"Generating draft {version_number} {message_id}, with {len(context_chats)} context chats and {existing_drafts} existing drafts"
-            )
-
-            res = generate_draft(
-                message_id=message_id,
-                current_chat=message_chat,
-                context_chats=context_chats,
-                previous_drafts=existing_drafts,
-                version_number=version_number,
-            )
-            logger.debug(f"Succesfully generated draft {version_number} {message_id}")
-            return Ok(res)
-        except Exception as ecx:
-            msg = f"Generating draft {version_number} {message_id} failed with: {ecx}"
-            logger.exception(msg)
-            return Err(msg)
-
-    def generate_and_save_chat(self, email_message_id: str) -> str:
-        # Retrieve the MailMessage from the database by message_id
-        mail: Optional[MailMessage] = self.get_email_by_message_id(email_message_id)
-        if mail is None:
-            raise ValueError(f"Mail with Message_ID {email_message_id} not found.")
-
-        try:
-            logger.debug(
-                f"Generating chat for email\n{'-'*100}\n{mail.Content}\n{'-'*100}"
-            )
-            chat: EmailChat = generate_email_chat_with_ollama(mail)
-            logger.debug(f"Chat generated:\n{chat.model_dump_json(indent=2)}")
-
-            with Session(self.engine) as session:
-                chat_record = EmailChatSQL(
-                    email_message_id=email_message_id,
-                    chat_json=chat.model_dump_json(),
-                    authors=chat.authors,
-                )
-                session.add(chat_record)
-                session.commit()
-            logger.info(f"Saved chat for Message_ID {email_message_id}.")
-            return f"Chat saved successfully for {email_message_id}."
-        except Exception as exc:
-            logger.exception(
-                f"Failed to generate chat for Message_ID {email_message_id}: {exc}"
-            )
-            raise RuntimeError(f"Chat generation failed for {email_message_id}: {exc}")
-
-    def generate_and_save_summary(self, email_message_id: str) -> str:
-        # Check if a summary already exists for this email
-        with Session(self.engine) as session:
-            existing_summary = session.exec(
-                select(EmailSummarySQL).where(
-                    EmailSummarySQL.email_message_id == email_message_id
-                )
-            ).first()
-            if existing_summary:
-                logger.info(
-                    f"Summary already exists for Message_ID {email_message_id}."
-                )
-                return f"Summary already exists for {email_message_id}."
-
-        # Attempt to retrieve a chat for this email
-        chat: Optional[EmailChat] = None
-        with Session(self.engine) as session:
-            chat_record = session.exec(
-                select(EmailChatSQL).where(
-                    EmailChatSQL.email_message_id == email_message_id
-                )
-            ).first()
-            if chat_record:
-                try:
-                    chat = EmailChat.model_validate_json(chat_record[0].chat_json)
-                except Exception as e:
-                    logger.error(
-                        f"Failed to parse chat JSON for Message_ID {email_message_id}: {e}"
-                    )
-                    raise ValueError(
-                        f"Chat JSON parse error for {email_message_id}: {e}"
-                    )
-
-        # If no chat exists, try to generate a default chat from the mail
-        if chat is None:
-            mail: Optional[MailMessage] = self.get_email_by_message_id(email_message_id)
-            if mail is None:
-                raise ValueError(f"Mail with Message_ID {email_message_id} not found.")
-            chat = generate_default_chat(mail)
-
-        try:
-            summary_text = generate_summary(chat)
-            logger.debug(
-                f"Summary generated for {email_message_id}:\n{'-'*100}\n{summary_text}\n{'-'*100}"
-            )
-
-            with Session(self.engine) as session:
-                summary_record = EmailSummarySQL(
-                    email_message_id=email_message_id,
-                    summary_text=summary_text,
-                )
-                session.add(summary_record)
-                session.commit()
-            logger.info(f"Saved summary for Message_ID {email_message_id}.")
-            return f"Summary saved successfully for {email_message_id}."
-        except Exception as exc:
-            logger.exception(
-                f"Failed to generate summary for Message_ID {email_message_id}: {exc}"
-            )
-            raise RuntimeError(
-                f"Summary generation failed for {email_message_id}: {exc}"
-            )
+        return Ok(sql_email_chat_to_email_chat(summary))

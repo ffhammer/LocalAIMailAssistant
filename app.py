@@ -1,33 +1,33 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
+import asyncio
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import List, Optional
-import uvicorn
-from loguru import logger
-from pydantic import BaseModel
 
+import uvicorn
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse, StreamingResponse
+from loguru import logger
+from sqlalchemy import select
+
+from refresh import refresh_mailbox
 from src.accounts_loading import load_accounts
-from src.mail_db import (
-    MailDB,
-    MailMessageSQL,
-    EmailSummarySQL,
-    EmailChatSQL,
-    UpdateStatus,
-)
-from src.message import MailMessage
-from src.chats import EmailChat, generate_default_chat
-from src.imap_querying import list_mailboxes_of_account
 from src.background_manager import (
-    BackgroundTaskManager,
     JOB_TYPE,
     STATUS,
+    BackgroundTaskManager,
     JobStatus,
     JobStatusSQL,
 )
-from sqlalchemy import select
-import asyncio
-
-from contextlib import asynccontextmanager
+from src.chats import EmailChat, generate_default_chat
+from src.imap_querying import list_mailboxes_of_account
+from src.mail_db import (
+    EmailChatSQL,
+    EmailSummarySQL,
+    MailDB,
+    MailMessageSQL,
+    UpdateStatus,
+)
+from src.message import MailMessage
 
 logger.level("DEBUG")
 
@@ -284,11 +284,9 @@ async def post_update_account(
     if mailbox not in list_mailboxes_of_account(accounts[account_id]):
         raise HTTPException(status_code=404, detail="Mailbox not found")
 
-    db = dbs[account_id]
-
     async def event_generator():
-        async for message_id in db.refresh_mailbox(
-            mailbox=mailbox, after_date=after_date
+        async for message_id in refresh_mailbox(
+            db=dbs[account_id], mailbox=mailbox, after_date=after_date
         ):
             logger.debug(f"yielding new message {message_id}")
             yield f"data: {message_id}\n\n"
