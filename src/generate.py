@@ -31,7 +31,7 @@ def generate_and_save_chat(db: MailDB, email_message_id: str) -> Result[EmailCha
         chat: EmailChat = generate_email_chat_with_ollama(mail)
         logger.debug(f"Chat generated:\n{chat.model_dump_json(indent=2)}")
 
-        db.add_values(
+        db.add_value(
             EmailChatSQL(
                 email_message_id=email_message_id,
                 chat_json=chat.model_dump_json(),
@@ -41,6 +41,9 @@ def generate_and_save_chat(db: MailDB, email_message_id: str) -> Result[EmailCha
         logger.info(f"Saved chat for Message_ID {email_message_id}.")
         return Ok(chat)
     except Exception as exc:
+        logger.exception(
+            f"Failed to generate summary for Message_ID {email_message_id}: {exc}"
+        )
         return return_error_and_log(
             f"Failed to generate chat for Message_ID {email_message_id}: {exc}"
         )
@@ -79,6 +82,10 @@ def generate_and_save_summary(db: MailDB, email_message_id: str) -> Result[str, 
         logger.info(f"Saved summary for Message_ID {email_message_id}.")
         return Ok(summary_text)
     except Exception as exc:
+        logger.exception(
+            f"Failed to generate summary for Message_ID {email_message_id}: {exc}"
+        )
+
         return return_error_and_log(
             f"Failed to generate summary for Message_ID {email_message_id}: {exc}"
         )
@@ -125,6 +132,7 @@ def generate_and_save_draft(self, message_id: str) -> Result[EmailDraft, str]:
         logger.debug(f"Succesfully generated draft {version_number} {message_id}")
         return Ok(res)
     except Exception as ecx:
+        logger.exception("generate failed")
         return return_error_and_log(
             f"Generating draft {version_number} {message_id} failed with: {ecx}"
         )

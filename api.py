@@ -8,6 +8,7 @@ from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
 from pydantic_settings import BaseSettings
+from result import is_err, is_ok
 from sqlalchemy import select
 
 from src.accounts_loading import AccountSettings, load_accounts
@@ -18,7 +19,7 @@ from src.background_manager import (
     JobStatus,
     JobStatusSQL,
 )
-from src.chats import EmailChat, generate_default_chat
+from src.chats import EmailChat
 from src.imap_querying import IMAPClient, TestIMAPClient, list_mailboxes_of_account
 from src.mail_db import (
     EmailChatSQL,
@@ -167,14 +168,10 @@ def get_email_chat(
 
     chat = db.get_mail_chat(email_id=message_id)
 
-    if chat is not None:
-        return chat
+    if is_err(chat):
+        raise HTTPException(status_code=404, detail=chat.err())
 
-    email = db.get_email_by_message_id(message_id)
-    if email is None:
-        raise HTTPException(status_code=404, detail="Email not found")
-
-    return generate_default_chat(email)
+    return chat.ok_value
 
 
 @router.get("/accounts/{account_id}/summaries/", response_model=List[str])
@@ -206,7 +203,10 @@ def get_email_summary(
     return db.get_mail_summary(email_id=message_id)
 
 
-@router.post("/accounts/{account_id}/summaries/generate/{message_id}")
+@router.post(
+    "/accounts/{account_id}/summaries/generate/{message_id}",
+    response_model=JobStatusSQL,
+)
 def generate_email_summary(account_id: str, message_id: str):
     context: AppContext = Application.get_current_context()
     if account_id not in context.dbs:
@@ -215,10 +215,9 @@ def generate_email_summary(account_id: str, message_id: str):
     if get_email_summary(account_id=account_id, message_id=message_id) is not None:
         return JSONResponse(content={"detail": "Summary already exists."})
 
-    context.background_manager.add_job(
+    return context.background_manager.add_job(
         job_type=JOB_TYPE.summary, email_message_id=message_id, account_id=account_id
     )
-    return JSONResponse(content={"detail": "Summary generation job queued."})
 
 
 @router.post("/accounts/{account_id}/summaries/generate")
@@ -240,19 +239,20 @@ def generate_email_summaries(account_id: str):
     return JSONResponse(content={"detail": f"Queued {len(missing_ids)} summaries."})
 
 
-@router.post("/accounts/{account_id}/chats/generate/{message_id}")
+@router.post(
+    "/accounts/{account_id}/chats/generate/{message_id}", response_model=JobStatusSQL
+)
 def generate_email_chat(account_id: str, message_id: str):
     context: AppContext = Application.get_current_context()
     if account_id not in context.dbs:
         raise HTTPException(status_code=404, detail="Account not found")
 
-    if context.dbs[account_id].get_mail_chat(email_id=message_id) is not None:
+    if is_ok(context.dbs[account_id].get_mail_chat(email_id=message_id)):
         return JSONResponse(content={"detail": "Chat already exists."})
 
-    context.background_manager.add_job(
+    return context.background_manager.add_job(
         job_type=JOB_TYPE.chat, email_message_id=message_id, account_id=account_id
     )
-    return JSONResponse(content={"detail": "Chat generation job queued."})
 
 
 @router.post("/accounts/{account_id}/chats/generate")

@@ -92,9 +92,6 @@ class BackgroundTaskManager:
         self.engine = create_engine(f"sqlite:///{base_dir}/status.sql", echo=False)
         SQLModel.metadata.create_all(self.engine)
 
-    def start(self):
-        asyncio.run(self.run())
-
     def query_status(self, *where_clauses) -> List[JobStatus]:
         """Allows to any kind of query of the status"""
         with Session(self.engine) as session:
@@ -170,6 +167,8 @@ class BackgroundTaskManager:
             await self.run_job(job)
 
     async def run(self):
+        logger.info("Start Async Loop")
+
         while True:
             await self.process_pending_jobs(
                 JOB_TYPE.chat

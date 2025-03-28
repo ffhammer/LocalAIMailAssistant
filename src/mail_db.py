@@ -12,7 +12,7 @@ from sqlmodel import JSON, Column, Field, Session, SQLModel, create_engine, sele
 from .accounts_loading import AccountSettings
 from .chats import EmailChat, generate_default_chat
 from .message import MailMessage
-from .utils import return_error_and_log
+from .utils import LogLevel, return_error_and_log
 
 TABLE_TYPE = TypeVar("TABLE_TYPE", bound=SQLModel)
 
@@ -219,9 +219,11 @@ class MailDB:
             statement = select(EmailChatSQL).where(
                 EmailChatSQL.email_message_id == email_id
             )
-            summary = session.exec(statement).first()
+            chat = session.exec(statement).first()
 
-        if summary is None:
-            return None
+        if chat is None:
+            return return_error_and_log(
+                f"no chat for {email_id} saved", level=LogLevel.debug
+            )
 
-        return Ok(sql_email_chat_to_email_chat(summary))
+        return Ok(sql_email_chat_to_email_chat(chat))
