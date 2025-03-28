@@ -3,6 +3,8 @@ gpt_input.txt
 secrets
 db
 format.sh
+test_db
+test_data
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
