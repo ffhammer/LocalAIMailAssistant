@@ -20,6 +20,11 @@ class MailMessage(BaseModel):
     Subject: Optional[str]
     Was_Replied_To: bool
 
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, MailMessage):
+            return NotImplemented
+        return self.model_dump() == other.model_dump()
+
 
 def parse_processed_email(msg: EmailMessage, mailbox: str, uid: int) -> MailMessage:
     def parse_date(d: Optional[str]) -> datetime:

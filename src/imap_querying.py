@@ -1,5 +1,8 @@
 import email
 import imaplib
+import os
+import time
+from abc import ABC, abstractmethod
 from datetime import datetime
 from email.policy import default
 from typing import Optional
@@ -10,7 +13,111 @@ from .accounts_loading import AccountSettings
 from .message import MailMessage, parse_processed_email
 
 
-class IMAPClient:
+class ImapClientInterface(ABC):
+    @abstractmethod
+    def __enter__(self):
+        pass
+
+    @abstractmethod
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    @abstractmethod
+    def logout(self):
+        """Log out from the IMAP server."""
+        pass
+
+    @abstractmethod
+    def fetch_uids_after_date(
+        self, mailbox: str = "INBOX", after_date: Optional[datetime] = None
+    ) -> list[int]:
+        pass
+
+    @abstractmethod
+    def fetch_email_by_uid(
+        self, uid: int, mailbox: str = "INBOX"
+    ) -> Optional[MailMessage]:
+        pass
+
+    @abstractmethod
+    def list_mailboxes(self) -> list[str]:
+        pass
+
+
+class TestIMAPClient(ImapClientInterface):
+    instance: Optional["TestIMAPClient"] = None
+    initialzed: bool = False
+
+    def __new__(cls, *args, **kwargs):
+        if cls.instance is None:
+            cls.instance = super().__new__(cls)
+            return cls.instance
+
+        return cls.instance
+
+    def __init__(self, settings: AccountSettings):
+        # Settings are not used for the test client
+
+        if self.initialzed:
+            return
+
+        self.messages: dict[int, MailMessage] = {}  # uid -> MailMessage
+        self.mailboxes: dict[str, list[int]] = {}  # mailbox name -> list of uids
+        # Create a default mailbox
+        self.mailboxes["INBOX"] = []
+
+        self.initialzed = True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def add_messages(self, messages: list[MailMessage], mailbox: str = "INBOX") -> None:
+        """
+        Adds a list of MailMessage objects to the specified mailbox.
+        Each MailMessage is assumed to have a unique Id.
+        """
+        if mailbox not in self.mailboxes:
+            self.mailboxes[mailbox] = []
+        for message in messages:
+            uid = message.Id  # Assuming unique identifier is in Id
+            self.messages[uid] = message
+            self.mailboxes[mailbox].append(uid)
+
+    def logout(self):
+        # For the test client, there's no actual connection to close.
+        pass
+
+    def fetch_uids_after_date(
+        self, mailbox: str = "INBOX", after_date: Optional[datetime] = None
+    ) -> list[int]:
+        if mailbox not in self.mailboxes:
+            return []
+        uids = []
+        for uid in self.mailboxes[mailbox]:
+            message = self.messages.get(uid)
+            if message:
+                # Compare Date_Sent (or Date_Received) with after_date if provided.
+                if after_date is None or message.Date_Sent > after_date:
+                    uids.append(uid)
+        return sorted(uids, key=lambda x: self.messages.get(x).Date_Sent)
+
+    def fetch_email_by_uid(
+        self, uid: int, mailbox: str = "INBOX"
+    ) -> Optional[MailMessage]:
+        time.sleep(0.1)
+
+        if mailbox not in self.mailboxes or uid not in self.mailboxes[mailbox]:
+            return None
+        return self.messages.get(uid)
+
+    def list_mailboxes(self) -> list[str]:
+        return list(self.mailboxes.keys())
+
+
+class RealIMAPClient(ImapClientInterface):
     def __init__(self, settings: AccountSettings):
         """
         Initialize the IMAPClient and establish a connection.
@@ -104,6 +211,11 @@ class IMAPClient:
         except Exception:
             logger.exception("get quota failed")
             return None
+
+
+IMAPClient: ImapClientInterface = (
+    TestIMAPClient if os.getenv("TEST_BACKEND", "False") == "True" else RealIMAPClient
+)
 
 
 def list_mailboxes_of_account(account: AccountSettings) -> Optional[list[str]]:

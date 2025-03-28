@@ -1,4 +1,5 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import List, Optional
@@ -7,9 +8,9 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
+from pydantic_settings import BaseSettings
 from sqlalchemy import select
 
-from refresh import refresh_mailbox
 from src.accounts_loading import load_accounts
 from src.background_manager import (
     JOB_TYPE,
@@ -19,7 +20,7 @@ from src.background_manager import (
     JobStatusSQL,
 )
 from src.chats import EmailChat, generate_default_chat
-from src.imap_querying import list_mailboxes_of_account
+from src.imap_querying import IMAPClient, TestIMAPClient, list_mailboxes_of_account
 from src.mail_db import (
     EmailChatSQL,
     EmailSummarySQL,
@@ -28,19 +29,57 @@ from src.mail_db import (
     UpdateStatus,
 )
 from src.message import MailMessage
+from src.refresh import refresh_mailbox
+from src.testing import TEST_ACCOUNT, load_test_messages
 
-logger.level("DEBUG")
+
+class ApiSettings(BaseSettings):
+    TEST_BACKEND: str = "False"
+    PATH_TO_TEST_DATA: str = "test_data/data.json"
+    LOG_LEVEL: str = "DEBUG"
+    TEST_DB_PATH: str = "test_db"
+
+
+settings = ApiSettings()
+
+logger.level(settings.LOG_LEVEL)
+
 
 # Load accounts from configuration (assumes a YAML file with multiple accounts)
 accounts = load_accounts("secrets/accounts.yaml")
-dbs = {account_id: MailDB("db", settings) for account_id, settings in accounts.items()}
+dbs = {
+    account_id: MailDB(base_dir="db", settings=settings)
+    for account_id, settings in accounts.items()
+}
 background_manager = BackgroundTaskManager(dbs, "db")
+
+
+def activate_test_state():
+    global accounts, dbs, background_manager
+
+    assert os.getenv("TEST_BACKEND") == "True"
+    assert issubclass(IMAPClient, TestIMAPClient)
+
+    accounts = {
+        "test": TEST_ACCOUNT,
+    }
+    dbs = {"test": MailDB(base_dir=settings.TEST_DB_PATH, settings=TEST_ACCOUNT)}
+    background_manager = BackgroundTaskManager(dbs, "db")
+    messages_by_mailbox = load_test_messages(settings.PATH_TO_TEST_DATA)
+    with IMAPClient(settings=accounts["test"]) as client:
+        client: TestIMAPClient
+
+        for mailbox, messages in messages_by_mailbox.items():
+            client.add_messages(messages, mailbox=mailbox)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.TEST_BACKEND == "True":
+        activate_test_state()
     # Startup logic
     asyncio.create_task(background_manager.run())
+
     yield
 
 

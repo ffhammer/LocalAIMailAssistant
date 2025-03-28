@@ -52,7 +52,7 @@ async def refresh_mailbox(
     to_do = list(set(new_mail_ids).difference(already_saved))
     logger.info(f"Fetching these uids {to_do}")
     # Yield each message_id as soon as it’s processed.
-    async for message_id in db.fetch_and_save_mails(to_do, mailbox):
+    async for message_id in fetch_and_save_mails(db=db, uids=to_do, mailbox=mailbox):
         yield message_id
 
     status = db.get_update_status()

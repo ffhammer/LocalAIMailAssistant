@@ -2,6 +2,7 @@ chat.sh
 gpt_input.txt
 secrets
 db
+format.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
