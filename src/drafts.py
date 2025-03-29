@@ -8,7 +8,7 @@ from .chats import EmailChat
 from .config import DRAFT_GENERATOR_MODEL_NAME
 
 
-class EmailDraft(SQLModel):
+class EmailDraftSQL(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     message_id: str = Field(index=True)
     version_number: int
@@ -26,13 +26,13 @@ class EmailDraft(SQLModel):
         )
 
 
-def generate_draft(
+def generate_draft_with_ollama(
     message_id: str,
     current_chat: EmailChat,
     context_chats: List[EmailChat] = [],
-    previous_drafts: List[EmailDraft] = [],
+    previous_drafts: List[EmailDraftSQL] = [],
     current_version: int = 1,
-) -> EmailDraft:
+) -> EmailDraftSQL:
     """
     Generates an email draft using an LLM via Ollama.
 
@@ -101,7 +101,7 @@ def generate_draft(
     )
 
     draft_text = response.message.content.strip()
-    return EmailDraft(
+    return EmailDraftSQL(
         message_id=message_id,
         version_number=current_version,
         draft_text=draft_text,

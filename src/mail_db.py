@@ -11,9 +11,11 @@ from sqlmodel import JSON, Column, Field, Session, SQLModel, create_engine, sele
 
 from .accounts_loading import AccountSettings
 from .chats import EmailChat, generate_default_chat
+from .drafts import EmailDraftSQL
 from .message import MailMessage
 from .utils import LogLevel, return_error_and_log
 
+EmailDraftSQL  # for create all
 TABLE_TYPE = TypeVar("TABLE_TYPE", bound=SQLModel)
 
 
@@ -32,12 +34,6 @@ class EmailSummarySQL(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     email_message_id: str = Field(index=True, unique=True)
     summary_text: str
-
-
-class ReplyDraftSQL(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    email_message_id: str = Field(index=True, unique=True)
-    draft_text: str
 
 
 class UpdateStatus(BaseModel):

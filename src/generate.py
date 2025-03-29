@@ -10,7 +10,7 @@ from src.mail_db import (
 )
 
 from .chats import EmailChat, generate_email_chat_with_ollama
-from .drafts import EmailDraft, generate_draft
+from .drafts import EmailDraftSQL, generate_draft_with_ollama
 from .message import MailMessage
 from .summary import generate_summary
 from .utils import LogLevel, return_error_and_log
@@ -91,15 +91,15 @@ def generate_and_save_summary(db: MailDB, email_message_id: str) -> Result[str, 
         )
 
 
-def generate_and_save_draft(self, message_id: str) -> Result[EmailDraft, str]:
-    mail: Optional[MailMessage] = self.get_email_by_message_id(message_id)
+def generate_and_save_draft(db: MailDB, message_id: str) -> Result[EmailDraftSQL, str]:
+    mail: Optional[MailMessage] = db.get_email_by_message_id(message_id)
     if mail is None:
         return return_error_and_log(f"Mail with Message_ID {message_id} not found.")
 
     draft_subjcet = mail.Sender  # from how the message is
 
-    existing_drafts: list[EmailDraft] = self.query_table(
-        EmailDraft, EmailDraft.message_id == message_id
+    existing_drafts: list[EmailDraftSQL] = db.query_table(
+        EmailDraftSQL, EmailDraftSQL.message_id == message_id
     )
     version_number = 1
     if existing_drafts:
@@ -107,28 +107,29 @@ def generate_and_save_draft(self, message_id: str) -> Result[EmailDraft, str]:
         version_number = existing_drafts[-1].version_number + 1
 
     # we want other chats with the same subject  but different ids
-    context_chats: List[EmailChatSQL] = self.query_table(
+    context_chats: List[EmailChatSQL] = db.query_table(
         EmailChatSQL,
-        EmailChatSQL.message_id != message_id,
+        EmailChatSQL.email_message_id != message_id,
         EmailChatSQL.authors.contains([draft_subjcet]),
     )
 
-    message_chat = self.get_mail_chat(message_id)
-    if is_err(message_chat):
-        return message_chat
+    message_chat_res = db.get_mail_chat(message_id)
+    if is_err(message_chat_res):
+        return message_chat_res
 
     try:
         logger.debug(
             f"Generating draft {version_number} {message_id}, with {len(context_chats)} context chats and {existing_drafts} existing drafts"
         )
 
-        res = generate_draft(
+        res = generate_draft_with_ollama(
             message_id=message_id,
-            current_chat=message_chat,
+            current_chat=message_chat_res.ok_value,
             context_chats=context_chats,
             previous_drafts=existing_drafts,
-            version_number=version_number,
+            current_version=version_number,
         )
+        db.add_value(res)
         logger.debug(f"Succesfully generated draft {version_number} {message_id}")
         return Ok(res)
     except Exception as ecx:

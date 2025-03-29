@@ -23,6 +23,7 @@ from src.chats import EmailChat
 from src.imap_querying import IMAPClient, TestIMAPClient, list_mailboxes_of_account
 from src.mail_db import (
     EmailChatSQL,
+    EmailDraftSQL,
     EmailSummarySQL,
     MailDB,
     MailMessageSQL,
@@ -205,7 +206,7 @@ def get_email_summary(
 
 @router.post(
     "/accounts/{account_id}/summaries/generate/{message_id}",
-    response_model=JobStatusSQL,
+    response_model=Optional[JobStatusSQL],
 )
 def generate_email_summary(account_id: str, message_id: str):
     context: AppContext = Application.get_current_context()
@@ -213,7 +214,7 @@ def generate_email_summary(account_id: str, message_id: str):
         raise HTTPException(status_code=404, detail="Account not found")
 
     if get_email_summary(account_id=account_id, message_id=message_id) is not None:
-        return JSONResponse(content={"detail": "Summary already exists."})
+        return None
 
     return context.background_manager.add_job(
         job_type=JOB_TYPE.summary, email_message_id=message_id, account_id=account_id
@@ -240,7 +241,8 @@ def generate_email_summaries(account_id: str):
 
 
 @router.post(
-    "/accounts/{account_id}/chats/generate/{message_id}", response_model=JobStatusSQL
+    "/accounts/{account_id}/chats/generate/{message_id}",
+    response_model=Optional[JobStatusSQL],
 )
 def generate_email_chat(account_id: str, message_id: str):
     context: AppContext = Application.get_current_context()
@@ -248,7 +250,7 @@ def generate_email_chat(account_id: str, message_id: str):
         raise HTTPException(status_code=404, detail="Account not found")
 
     if is_ok(context.dbs[account_id].get_mail_chat(email_id=message_id)):
-        return JSONResponse(content={"detail": "Chat already exists."})
+        return None
 
     return context.background_manager.add_job(
         job_type=JOB_TYPE.chat, email_message_id=message_id, account_id=account_id
@@ -269,14 +271,91 @@ def generate_email_chats(account_id: str):
 
     for msg_id in missing_ids:
         context.background_manager.add_job(
-            job_type=JOB_TYPE.chat, email_message_id=msg_id, account_id=account_id
+            job_type=JOB_TYPE.chat,
+            email_message_id=msg_id,
+            account_id=account_id,
         )
 
     return JSONResponse(content={"detail": f"Queued {len(missing_ids)} chats."})
 
 
+@router.post(
+    "/accounts/{account_id}/drafts/save/{message_id}",
+)
+def generate_save_draft(account_id: str, new_user_draft: EmailDraftSQL) -> bool:
+    """Saves a new draft from the user.
+    Swagger UI does not display the second argument:
+    new_user_draft : EmailDraftSQL
+    """
+
+    context: AppContext = Application.get_current_context()
+    if account_id not in context.dbs:
+        raise HTTPException(status_code=404, detail="Account not found")
+    db = context.dbs[account_id]
+    db.add_value(new_user_draft)
+    return True
+
+
+@router.post(
+    "/accounts/{account_id}/drafts/generate/{message_id}",
+    response_model=Optional[JobStatusSQL],
+)
+def generate_email_draft(
+    account_id: str,
+    message_id: str,
+):
+    context: AppContext = Application.get_current_context()
+    if account_id not in context.dbs:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    db = context.dbs[account_id]
+    drafts: list[EmailDraftSQL] = db.query_table(
+        EmailDraftSQL, EmailDraftSQL.message_id == message_id
+    )
+    drafts.sort(key=lambda x: x.version_number)
+
+    last_draft_by_user = drafts[-1].by_user if len(drafts) else False
+
+    if (
+        not last_draft_by_user
+        and get_latest_email_draft(account_id=account_id, message_id=message_id)
+        is not None
+    ):
+        return None
+
+    return context.background_manager.add_job(
+        job_type=JOB_TYPE.draft, account_id=account_id, email_message_id=message_id
+    )
+
+
+@router.get(
+    "/accounts/{account_id}/drafts/{message_id}",
+    response_model=Optional[EmailDraftSQL],
+)
+def get_latest_email_draft(
+    account_id: str,
+    message_id: str,
+):
+    context: AppContext = Application.get_current_context()
+    if account_id not in context.dbs:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    db = context.dbs[account_id]
+
+    drafts: list[EmailDraftSQL] = db.query_table(
+        EmailDraftSQL, EmailDraftSQL.message_id == message_id
+    )
+
+    if len(drafts) == 0:
+        return None
+    drafts.sort(key=lambda x: x.version_number)
+
+    return drafts[-1]
+
+
 @router.get("/background/status", response_model=List[JobStatus])
 def get_background_status(
+    job_id: Optional[int] = None,
     job_type: Optional[JOB_TYPE] = None,
     status: Optional[STATUS] = None,
     message_id: Optional[str] = None,
@@ -285,6 +364,8 @@ def get_background_status(
     context: AppContext = Application.get_current_context()
     args = []
 
+    if job_id is not None:
+        args.append(JobStatusSQL.id == job_id)
     if job_type is not None:
         args.append(JobStatusSQL.job_type == job_type)
     if status is not None:

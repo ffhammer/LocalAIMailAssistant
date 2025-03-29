@@ -173,8 +173,9 @@ class BackgroundTaskManager:
             await self.process_pending_jobs(
                 JOB_TYPE.chat
             )  # ignore the palcehodel func here!
-            await self.process_pending_jobs(
-                JOB_TYPE.summary
-            )  # ignore the palcehodel func here!
+            await self.process_pending_jobs(JOB_TYPE.summary)
+            await self.process_pending_jobs(JOB_TYPE.draft)
+
+            # ignore the palcehodel func here!
             # await self.process_pending_jobs(JOB_TYPE.draft, self.generate_summary_job)
             await asyncio.sleep(5)
