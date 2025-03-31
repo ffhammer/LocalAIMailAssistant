@@ -3,17 +3,17 @@ from typing import List, Optional
 from loguru import logger
 from result import Ok, Result, is_err
 
-from src.mail_db import (
+from src.db.mail_db import (
     EmailChatSQL,
     EmailSummarySQL,
     MailDB,
 )
 
-from .chats import EmailChat, generate_email_chat_with_ollama
-from .drafts import EmailDraftSQL, generate_draft_with_ollama
-from .message import MailMessage
-from .summary import generate_summary
-from .utils import LogLevel, return_error_and_log
+from ..models.message import MailMessage
+from ..ollama.chats import EmailChat, generate_email_chat_with_ollama
+from ..ollama.drafts import EmailDraftSQL, generate_draft_with_ollama
+from ..ollama.summary import generate_summary
+from ..utils import LogLevel, return_error_and_log
 
 
 def generate_and_save_chat(db: MailDB, email_message_id: str) -> Result[EmailChat, str]:

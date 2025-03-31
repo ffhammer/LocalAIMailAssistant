@@ -11,26 +11,24 @@ from pydantic_settings import BaseSettings
 from result import is_err, is_ok
 from sqlalchemy import select
 
-from src.accounts_loading import AccountSettings, load_accounts
-from src.background_manager import (
+from src.accounts.accounts_loading import AccountSettings, load_accounts
+from src.background_tasks.background_manager import BackgroundTaskManager
+from src.background_tasks.refresh import refresh_mailbox
+from src.db import MailDB
+from src.imap.imap_client import IMAPClient, TestIMAPClient, list_mailboxes_of_account
+from src.models import (
     JOB_TYPE,
     STATUS,
-    BackgroundTaskManager,
-    JobStatus,
-    JobStatusSQL,
-)
-from src.chats import EmailChat
-from src.imap_querying import IMAPClient, TestIMAPClient, list_mailboxes_of_account
-from src.mail_db import (
+    EmailChat,
     EmailChatSQL,
     EmailDraftSQL,
     EmailSummarySQL,
-    MailDB,
+    JobStatus,
+    JobStatusSQL,
+    MailMessage,
     MailMessageSQL,
     UpdateStatus,
 )
-from src.message import MailMessage
-from src.refresh import refresh_mailbox
 from src.testing import TEST_ACCOUNT, load_test_messages
 
 

@@ -1,7 +1,7 @@
 import json
 
-from .accounts_loading import AccountSettings
-from .message import MailMessage
+from .accounts.accounts_loading import AccountSettings
+from .models.message import MailMessage
 
 TEST_ACCOUNT = AccountSettings(
     password="",

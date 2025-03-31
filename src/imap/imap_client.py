@@ -9,8 +9,8 @@ from typing import Optional
 
 from loguru import logger
 
-from .accounts_loading import AccountSettings
-from .message import MailMessage, parse_processed_email
+from ..accounts.accounts_loading import AccountSettings
+from ..models.message import MailMessage, parse_processed_email
 
 
 class ImapClientInterface(ABC):

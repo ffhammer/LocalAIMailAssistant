@@ -1,89 +1,24 @@
 import asyncio
 from datetime import datetime
-from enum import StrEnum
-from typing import List, Optional
+from typing import List
 
 from loguru import logger
-from pydantic import BaseModel
 from result import Result, is_err
-from sqlmodel import Field, Session, SQLModel, create_engine, select
+from sqlmodel import Session, SQLModel, create_engine, select
 
-from src.generate import (
+from ..db import MailDB
+from ..models import JOB_TYPE, STATUS, JobStatus, JobStatusSQL
+from .tasks import (
     generate_and_save_chat,
     generate_and_save_draft,
     generate_and_save_summary,
 )
-
-from .mail_db import MailDB
-
-
-class JOB_TYPE(StrEnum):
-    summary = "summary"
-    draft = "draft"
-    chat = "chat"
-
-
-class STATUS(StrEnum):
-    pending = "pending"
-    in_progress = "in_progress"
-    completed = "completed"
-    failed = "failed"
-
 
 JOB_FUNCS = job_funcs = {
     JOB_TYPE.summary: generate_and_save_summary,
     JOB_TYPE.chat: generate_and_save_chat,
     JOB_TYPE.draft: generate_and_save_draft,
 }
-
-
-class JobStatusSQL(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    job_type: str
-    email_message_id: str = Field(index=True)
-    account_id: str
-    status: str
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    error_message: Optional[str] = None
-    output: Optional[str] = None
-
-    @classmethod
-    def from_job_status(cls, status: "JobStatus") -> "JobStatusSQL":
-        return cls(
-            job_type=str(status.job_type),
-            email_message_id=status.email_message_id,
-            account_id=status.account_id,
-            status=str(status.status),
-            start_time=status.start_time,
-            end_time=status.end_time,
-            error_message=status.error_message,
-            output=status.output,
-        )
-
-
-class JobStatus(BaseModel):
-    job_type: JOB_TYPE
-    email_message_id: str
-    account_id: str
-    status: STATUS
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    error_message: Optional[str] = None
-    output: Optional[str] = None
-
-    @classmethod
-    def from_sql_model(cls, status: "JobStatusSQL") -> "JobStatus":
-        return cls(
-            job_type=status.job_type,
-            email_message_id=str(status.email_message_id),
-            account_id=status.account_id,
-            status=status.status,
-            start_time=status.start_time,
-            end_time=status.end_time,
-            error_message=status.error_message,
-            output=status.output,
-        )
 
 
 class BackgroundTaskManager:

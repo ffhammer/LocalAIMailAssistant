@@ -1,7 +1,7 @@
 from ollama import chat
 
-from .chats import EmailChat
-from .config import SUMMARY_MODEL
+from ..config import SUMMARY_MODEL
+from ..models import EmailChat
 
 
 def generate_summary(email_chat: EmailChat) -> str:

@@ -1,29 +1,9 @@
-import json
-from typing import List, Optional
+from typing import List
 
 from ollama import chat
-from sqlmodel import Field, SQLModel
 
-from .chats import EmailChat
-from .config import DRAFT_GENERATOR_MODEL_NAME
-
-
-class EmailDraftSQL(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    message_id: str = Field(index=True)
-    version_number: int
-    draft_text: str
-    by_user: bool
-
-    def format_for_llm(self) -> str:
-        return json.dumps(
-            {
-                "version": self.version_number,
-                "author": "user" if self.by_user else "llm",
-                "content": self.draft_text,
-            },
-            indent=2,
-        )
+from ..config import DRAFT_GENERATOR_MODEL_NAME
+from ..models import EmailChat, EmailDraftSQL
 
 
 def generate_draft_with_ollama(

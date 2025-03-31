@@ -5,13 +5,13 @@ from typing import List, Optional
 from loguru import logger
 from sqlmodel import Session, select
 
-from src.mail_db import (
+from src.db.mail_db import (
     MailDB,
     MailMessageSQL,
     UpdateStatus,
 )
 
-from .imap_querying import IMAPClient
+from ..imap.imap_client import IMAPClient
 
 
 async def fetch_and_save_mails(db: MailDB, uids: List[int], mailbox: str):

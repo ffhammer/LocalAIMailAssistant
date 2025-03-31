@@ -1,52 +1,7 @@
-import json
-from datetime import datetime
-from typing import List
-
 from ollama import chat
-from pydantic import BaseModel, model_validator
 
-from .config import CHAT_EXTRACTOR_MODEL_NAME
-from .message import MailMessage
-
-
-class ChatEntry(BaseModel):
-    author: str
-    date_sent: datetime
-    enty_content: str
-
-
-class EmailChat(BaseModel):
-    entries: List[ChatEntry]
-    authors: list[str]
-
-    @model_validator(mode="before")
-    def generate_authors(cls, values):
-        if "authors" not in values:
-            authors = set()
-
-            for entry in values["entries"]:
-                author = (
-                    entry.author if isinstance(entry, ChatEntry) else entry["author"]
-                )
-
-                if author:
-                    authors.add(author)
-
-            values["authors"] = list(authors)
-        return values
-
-    def format_chat_for_llm(self) -> str:
-        sorted_entries = sorted(self.entries, key=lambda e: e.date_sent)
-        formatted = [
-            {
-                "author": e.author,
-                "date_sent": e.date_sent.isoformat(),
-                "content": e.enty_content.strip(),
-                "focus": i == len(sorted_entries) - 1,
-            }
-            for i, e in enumerate(sorted_entries)
-        ]
-        return json.dumps(formatted, indent=2)
+from ..config import CHAT_EXTRACTOR_MODEL_NAME
+from ..models import ChatEntry, EmailChat, MailMessage
 
 
 def generate_default_chat(message: MailMessage) -> EmailChat:
