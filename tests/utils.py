@@ -3,7 +3,8 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-from api import ApiSettings, Application, JobStatus, MailMessage, create_app
+from src.api import ApiSettings, Application, create_app
+from src.models import JobStatus, MailMessage
 
 pytestmark = pytest.mark.asyncio
 

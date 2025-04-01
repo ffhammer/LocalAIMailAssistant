@@ -2,8 +2,7 @@ import time
 
 from fastapi.testclient import TestClient
 
-from api import JOB_TYPE, STATUS, EmailChat, JobStatusSQL, MailMessage
-from src.background_manager import JOB_TYPE
+from src.models import JOB_TYPE, STATUS, EmailChat, JobStatusSQL, MailMessage
 from src.testing import load_test_messages
 from tests.utils import check_job_status, save_mails, temp_test_dir, test_app
 
