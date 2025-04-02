@@ -10,7 +10,7 @@ from ..models import (
     JobStatusSQL,
 )
 
-router = APIRouter()
+router = APIRouter(tags=["Background"])
 
 
 @router.get("/background/status", response_model=List[JobStatus])

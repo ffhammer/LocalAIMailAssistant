@@ -9,7 +9,7 @@ from ..models import (
     JobStatusSQL,
 )
 
-router = APIRouter()
+router = APIRouter(tags=["Drafts"])
 
 
 @router.post(

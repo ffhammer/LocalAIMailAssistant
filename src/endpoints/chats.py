@@ -8,7 +8,7 @@ from sqlmodel import select
 from ..app_context import AppContext, Application
 from ..models import JOB_TYPE, EmailChat, EmailChatSQL, JobStatusSQL, MailMessageSQL
 
-router = APIRouter()
+router = APIRouter(tags=["Chats"])
 
 
 @router.get("/accounts/{account_id}/chats/{message_id}", response_model=EmailChat)

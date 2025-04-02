@@ -7,7 +7,7 @@ from ..app_context import Application
 from ..imap.imap_client import list_mailboxes_of_account
 from ..models import MailMessage, MailMessageSQL
 
-router = APIRouter()
+router = APIRouter(tags=["Emails"])
 
 
 @router.get(

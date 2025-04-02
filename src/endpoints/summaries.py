@@ -12,7 +12,7 @@ from ..models import (
     MailMessageSQL,
 )
 
-router = APIRouter()
+router = APIRouter(tags=["Summaries"])
 
 
 @router.get("/accounts/{account_id}/summaries/", response_model=List[str])

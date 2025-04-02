@@ -11,7 +11,7 @@ from ..background_tasks.refresh import refresh_mailbox
 from ..imap.imap_client import list_mailboxes_of_account
 from ..models import UpdateStatus
 
-router = APIRouter()
+router = APIRouter(tags=["Update"])
 
 
 @router.get("/accounts/{account_id}/status/", response_model=Optional[UpdateStatus])
