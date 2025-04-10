@@ -22,9 +22,9 @@ def load_test_messages(path) -> dict[str, MailMessage]:
         data: list[dict] = json.loads(f.read())
 
     mails = [MailMessage.model_validate(mail) for mail in data]
-    unique_mailboxes = {mail.Mailbox for mail in mails}
+    unique_mailboxes = {mail.mailbox for mail in mails}
 
     return {
-        mailbox: [mail for mail in mails if mail.Mailbox == mailbox]
+        mailbox: [mail for mail in mails if mail.mailbox == mailbox]
         for mailbox in unique_mailboxes
     }

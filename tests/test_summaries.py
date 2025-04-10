@@ -29,14 +29,14 @@ def test_queue_summary_job_via_generate_endpoint(test_app):
         email: MailMessage = messages_by_mailbox[mailbox][0]
         save_mails(test_app, messages_by_mailbox[mailbox])
 
-        resp = client.post(f"/accounts/test/summaries/generate/{email.Message_ID}")
+        resp = client.post(f"/accounts/test/summaries/generate/{email.message_id}")
         assert resp.status_code == 200
         job_status = JobStatusSQL.model_validate(resp.json())
         assert job_status.status == STATUS.pending
 
         while not check_job_status(
             test_app,
-            message_id=email.Message_ID,
+            message_id=email.message_id,
             status=str(STATUS.in_progress),
             job_type=str(JOB_TYPE.summary),
         ):
@@ -44,12 +44,12 @@ def test_queue_summary_job_via_generate_endpoint(test_app):
 
         while check_job_status(
             test_app,
-            message_id=email.Message_ID,
+            message_id=email.message_id,
             status=str(STATUS.completed),
             job_type=str(JOB_TYPE.summary),
         ) or check_job_status(
             test_app,
-            message_id=email.Message_ID,
+            message_id=email.message_id,
             status=str(STATUS.failed),
             job_type=str(JOB_TYPE.summary),
         ):

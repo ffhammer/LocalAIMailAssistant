@@ -49,17 +49,17 @@ def test_queue_chat_job_via_generate_endpoint(test_app):
         save_mails(test_app, messages_by_mailbox[mailbox])
 
         assert email, "No email with Reply_To found in test data."
-        assert email.Reply_To is not None
+        assert email.reply_to is not None
 
         # Queue the chat job.
-        resp = client.post(f"/accounts/test/chats/generate/{email.Message_ID}")
+        resp = client.post(f"/accounts/test/chats/generate/{email.message_id}")
         assert resp.status_code == 200
         job_status = JobStatusSQL.model_validate(resp.json())
         assert job_status.status == STATUS.pending
 
         while not check_job_status(
             test_app,
-            message_id=email.Message_ID,
+            message_id=email.message_id,
             status=str(STATUS.in_progress),
             job_type=str(JOB_TYPE.chat),
         ):
@@ -67,12 +67,12 @@ def test_queue_chat_job_via_generate_endpoint(test_app):
 
         while check_job_status(
             test_app,
-            message_id=email.Message_ID,
+            message_id=email.message_id,
             status=str(STATUS.completed),
             job_type=str(JOB_TYPE.chat),
         ) or check_job_status(
             test_app,
-            message_id=email.Message_ID,
+            message_id=email.message_id,
             status=str(STATUS.failed),
             job_type=str(JOB_TYPE.chat),
         ):

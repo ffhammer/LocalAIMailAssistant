@@ -9,18 +9,18 @@ from sqlmodel import Field, SQLModel
 
 
 class MailMessage(BaseModel):
-    Id: int
-    Mailbox: str
-    Content: str
-    Date_Received: datetime
-    Date_Sent: datetime
-    Deleted_Status: bool
-    Junk_Mail_Status: bool
-    Message_ID: str
-    Reply_To: Optional[str]
-    Sender: EmailStr
-    Subject: Optional[str]
-    Was_Replied_To: bool
+    id: int
+    mailbox: str
+    content: str
+    date_received: datetime
+    date_sent: datetime
+    deleted_status: bool
+    junk_mail_status: bool
+    message_id: str
+    reply_to: Optional[str]
+    sender: EmailStr
+    subject: Optional[str]
+    was_replied_to: bool
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, MailMessage):
@@ -40,19 +40,19 @@ def parse_processed_email(msg: EmailMessage, mailbox: str, uid: int) -> MailMess
         return m.get_payload(decode=True).decode(errors="replace")
 
     return MailMessage(
-        Id=uid,
-        Mailbox=mailbox,
-        Content=get_body(msg),
-        Date_Received=parse_date(msg.get("Date")),
-        Date_Sent=parse_date(msg.get("Date")),
-        Deleted_Status="\\Deleted" in msg.get("Flags", ""),
-        Junk_Mail_Status="Junk"
+        id=uid,
+        mailbox=mailbox,
+        content=get_body(msg),
+        date_received=parse_date(msg.get("Date")),
+        date_sent=parse_date(msg.get("Date")),
+        deleted_status="\\Deleted" in msg.get("Flags", ""),
+        junk_mail_status="Junk"
         in (msg.get("X-Folder", "") + msg.get("X-Spam-Flag", "")),
-        Message_ID=msg.get("Message-ID", "").strip(),
-        Reply_To=msg.get("In-Reply-To"),
-        Sender=email.utils.parseaddr(msg.get("From"))[1],
-        Subject=msg.get("Subject"),
-        Was_Replied_To=msg.get("In-Reply-To") is not None,
+        message_id=msg.get("Message-ID", "").strip(),
+        reply_to=msg.get("In-Reply-To"),
+        sender=email.utils.parseaddr(msg.get("From"))[1],
+        subject=msg.get("Subject"),
+        was_replied_to=msg.get("In-Reply-To") is not None,
     )
 
 
@@ -75,16 +75,16 @@ class MailMessageSQL(SQLModel, table=True):
 def sql_message_to_standard_message(mail: MailMessageSQL) -> MailMessage:
     content = Path(mail.content_file).read_text(encoding="utf-8")
     return MailMessage(
-        Id=mail.imap_uid,
-        Mailbox=mail.mailbox,
-        Content=content,
-        Date_Received=mail.date_received,
-        Date_Sent=mail.date_sent,
-        Deleted_Status=mail.deleted_status,
-        Junk_Mail_Status=mail.junk_mail_status,
-        Message_ID=mail.message_id,
-        Reply_To=mail.reply_to,
-        Sender=mail.sender,
-        Subject=mail.subject,
-        Was_Replied_To=mail.was_replied_to,
+        id=mail.imap_uid,
+        mailbox=mail.mailbox,
+        content=content,
+        date_received=mail.date_received,
+        date_sent=mail.date_sent,
+        deleted_status=mail.deleted_status,
+        junk_mail_status=mail.junk_mail_status,
+        message_id=mail.message_id,
+        reply_to=mail.reply_to,
+        sender=mail.sender,
+        subject=mail.subject,
+        was_replied_to=mail.was_replied_to,
     )

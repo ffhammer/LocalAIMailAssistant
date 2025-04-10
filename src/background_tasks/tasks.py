@@ -26,7 +26,7 @@ def generate_and_save_chat(db: MailDB, email_message_id: str) -> Result[EmailCha
 
     try:
         logger.debug(
-            f"Generating chat for email\n{'-' * 100}\n{mail.Content}\n{'-' * 100}"
+            f"Generating chat for email\n{'-' * 100}\n{mail.content}\n{'-' * 100}"
         )
         chat: EmailChat = generate_email_chat_with_ollama(mail)
         logger.debug(f"Chat generated:\n{chat.model_dump_json(indent=2)}")
@@ -96,7 +96,7 @@ def generate_and_save_draft(db: MailDB, message_id: str) -> Result[EmailDraftSQL
     if mail is None:
         return return_error_and_log(f"Mail with Message_ID {message_id} not found.")
 
-    draft_subjcet = mail.Sender  # from how the message is
+    draft_subjcet = mail.sender  # from how the message is
 
     existing_drafts: list[EmailDraftSQL] = db.query_table(
         EmailDraftSQL, EmailDraftSQL.message_id == message_id

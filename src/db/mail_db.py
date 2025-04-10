@@ -87,38 +87,38 @@ class MailDB:
             logger.exception(f"Failed to save the status: {exc}")
 
     def save_email(self, email_obj: MailMessage):
-        content_sha = sha1(str(email_obj.Message_ID).encode()).hexdigest()
+        content_sha = sha1(str(email_obj.message_id).encode()).hexdigest()
         content_file = self.contents_folder / content_sha
 
         if not content_file.exists():
             with open(content_file, "w", encoding="utf-8") as f:
-                f.write(email_obj.Content)
+                f.write(email_obj.content)
 
         if (
             self.query_first_item(
-                MailMessageSQL, MailMessageSQL.message_id == email_obj.Message_ID
+                MailMessageSQL, MailMessageSQL.message_id == email_obj.message_id
             )
             is not None
         ):
             logger.warning(
-                f"Email with Message_ID {email_obj.Message_ID} already saved."
+                f"Email with Message_ID {email_obj.message_id} already saved."
             )
             return None
 
         self.add_value(
             MailMessageSQL(
-                mailbox=email_obj.Mailbox,
+                mailbox=email_obj.mailbox,
                 content_file=str(content_file),
-                date_received=email_obj.Date_Received,
-                date_sent=email_obj.Date_Sent,
-                deleted_status=email_obj.Deleted_Status,
-                junk_mail_status=email_obj.Junk_Mail_Status,
-                message_id=email_obj.Message_ID,
-                reply_to=email_obj.Reply_To,
-                sender=email_obj.Sender,
-                subject=email_obj.Subject,
-                was_replied_to=email_obj.Was_Replied_To,
-                imap_uid=email_obj.Id,
+                date_received=email_obj.date_received,
+                date_sent=email_obj.date_sent,
+                deleted_status=email_obj.deleted_status,
+                junk_mail_status=email_obj.junk_mail_status,
+                message_id=email_obj.message_id,
+                reply_to=email_obj.reply_to,
+                sender=email_obj.sender,
+                subject=email_obj.subject,
+                was_replied_to=email_obj.was_replied_to,
+                imap_uid=email_obj.id,
             )
         )
 
@@ -162,7 +162,7 @@ class MailDB:
         if mail is None:
             return return_error_and_log(f"Mail with Message_ID {email_id} not found.")
 
-        if mail.Reply_To is None:
+        if mail.reply_to is None:
             return Ok(generate_default_chat(mail))
 
         with Session(self.engine) as session:

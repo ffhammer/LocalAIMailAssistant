@@ -34,5 +34,5 @@ async def test_post_update_account(mailbox: str, test_app: Application):
 
     context = test_app.context
     db: MailDB = context.dbs["test"]
-    saved = sorted(db.query_emails(), key=lambda x: x.Date_Sent)
-    assert [s.Message_ID for s in saved] == [m.Message_ID for m in mails]
+    saved = sorted(db.query_emails(), key=lambda x: x.date_sent)
+    assert [s.message_id for s in saved] == [m.Message_ID for m in mails]
