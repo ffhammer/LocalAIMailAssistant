@@ -1,11 +1,13 @@
 from .chat import ChatEntry, EmailChat, EmailChatSQL, sql_email_chat_to_email_chat
 from .draft import EmailDraftSQL
 from .jobs import JOB_TYPE, STATUS, JobStatus, JobStatusSQL
+from .mail_flag import MailFlag
 from .message import MailMessage, MailMessageSQL, sql_message_to_standard_message
 from .status import UpdateStatus
 from .summary import EmailSummarySQL
 
 __all__ = [
+    "MailFlag",
     "MailMessage",
     "MailMessageSQL",
     "EmailSummarySQL",

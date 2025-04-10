@@ -31,7 +31,7 @@ TABLE_TYPE = TypeVar("TABLE_TYPE", bound=SQLModel)
 class MailDB:
     def __init__(self, base_dir: str, settings: AccountSettings):
         self.settings = settings
-        self.path = Path(base_dir) / settings.apple_mail_name
+        self.path = Path(base_dir) / settings.name
         self.path.mkdir(parents=True, exist_ok=True)
 
         self.contents_folder = self.path / "contents"
@@ -119,6 +119,9 @@ class MailDB:
                 subject=email_obj.subject,
                 was_replied_to=email_obj.was_replied_to,
                 imap_uid=email_obj.id,
+                seen=email_obj.seen,
+                answered=email_obj.answered,
+                flagged=email_obj.flagged,
             )
         )
 

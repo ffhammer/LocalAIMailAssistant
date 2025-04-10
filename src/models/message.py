@@ -21,6 +21,9 @@ class MailMessage(BaseModel):
     sender: EmailStr
     subject: Optional[str]
     was_replied_to: bool
+    seen: bool = False
+    answered: bool = False
+    flagged: bool = False
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, MailMessage):
@@ -70,6 +73,9 @@ class MailMessageSQL(SQLModel, table=True):
     subject: Optional[str]
     was_replied_to: bool = False
     imap_uid: int
+    seen: bool = False
+    answered: bool = False
+    flagged: bool = False
 
 
 def sql_message_to_standard_message(mail: MailMessageSQL) -> MailMessage:
@@ -87,4 +93,7 @@ def sql_message_to_standard_message(mail: MailMessageSQL) -> MailMessage:
         sender=mail.sender,
         subject=mail.subject,
         was_replied_to=mail.was_replied_to,
+        seen=mail.seen,
+        answered=mail.answered,
+        flagged=mail.flagged,
     )

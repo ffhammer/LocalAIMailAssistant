@@ -11,6 +11,7 @@ from loguru import logger
 
 from ..accounts.accounts_loading import AccountSettings
 from ..models.message import MailMessage, parse_processed_email
+from .flags import MailFlag, parse_flags
 
 
 class ImapClientInterface(ABC):
@@ -41,6 +42,12 @@ class ImapClientInterface(ABC):
 
     @abstractmethod
     def list_mailboxes(self) -> list[str]:
+        pass
+
+    @abstractmethod
+    def fetch_all_flags_off_mailbox(
+        self, mailbox: str = "INBOX"
+    ) -> dict[int, tuple[MailFlag]]:
         pass
 
 
@@ -82,7 +89,7 @@ class TestIMAPClient(ImapClientInterface):
         if mailbox not in self.mailboxes:
             self.mailboxes[mailbox] = []
         for message in messages:
-            uid = message.Id  # Assuming unique identifier is in Id
+            uid = message.id  # Assuming unique identifier is in Id
             self.messages[uid] = message
             self.mailboxes[mailbox].append(uid)
 
@@ -100,9 +107,9 @@ class TestIMAPClient(ImapClientInterface):
             message = self.messages.get(uid)
             if message:
                 # Compare Date_Sent (or Date_Received) with after_date if provided.
-                if after_date is None or message.Date_Sent > after_date:
+                if after_date is None or message.date_sent > after_date:
                     uids.append(uid)
-        return sorted(uids, key=lambda x: self.messages.get(x).Date_Sent)
+        return sorted(uids, key=lambda x: self.messages.get(x).date_sent)
 
     def fetch_email_by_uid(
         self, uid: int, mailbox: str = "INBOX"
@@ -115,6 +122,25 @@ class TestIMAPClient(ImapClientInterface):
 
     def list_mailboxes(self) -> list[str]:
         return list(self.mailboxes.keys())
+
+    def fetch_all_flags_off_mailbox(
+        self, mailbox: str = "INBOX"
+    ) -> dict[int, tuple[MailFlag]]:
+        vals = {}
+
+        for id in self.mailboxes[mailbox]:
+            flags = []
+            mail = self.messages[id]
+            if mail.seen:
+                flags.append(MailFlag.Seen)
+            if mail.answered:
+                flags.append(MailFlag.Answered)
+            if mail.flagged:
+                flags.append(MailFlag.Flagged)
+
+            vals[id] = tuple(flags)
+
+        return vals
 
 
 class RealIMAPClient(ImapClientInterface):
@@ -166,7 +192,7 @@ class RealIMAPClient(ImapClientInterface):
             raise ValueError("mailbox is not found")
         if self.mail is None:
             raise PermissionError("You need to call the server as a context")
-        self.mail.select(mailbox)
+        self.mail.select(mailbox, readonly=True)
         criteria = f"(SINCE {after_date.strftime('%d-%b-%Y')})" if after_date else "ALL"
         result, data = self.mail.uid("SEARCH", None, criteria)
         if result != "OK":
@@ -211,6 +237,19 @@ class RealIMAPClient(ImapClientInterface):
         except Exception:
             logger.exception("get quota failed")
             return None
+
+    def fetch_all_flags_off_mailbox(
+        self, mailbox: str = "INBOX"
+    ) -> dict[int, tuple[MailFlag]]:
+        uids = self.fetch_uids_after_date(mailbox=mailbox)
+
+        msg_range = f"{uids[0].decode()}:{uids[-1].decode()}"
+        self.mail.select(mailbox=mailbox, readonly=True)
+        typ, data = self.mail.mail.fetch(msg_range, "(FLAGS)")
+        if typ != "OK":
+            raise Exception("Failed to fetch flags")
+
+        return parse_flags(data=data)
 
 
 IMAPClient: ImapClientInterface = (

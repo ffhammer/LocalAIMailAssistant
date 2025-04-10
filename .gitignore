@@ -1,7 +1,7 @@
 chat.sh
 gpt_input.txt
 secrets
-db
+db/
 format.sh
 test_db
 test_data
