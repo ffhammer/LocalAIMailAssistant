@@ -6,8 +6,6 @@ from fastapi.testclient import TestClient
 from src.api import ApiSettings, Application, create_app
 from src.models import JobStatus, MailMessage
 
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.fixture(scope="function")
 def temp_test_dir(tmp_path_factory) -> str:

@@ -10,8 +10,6 @@ from tests.utils import temp_test_dir, test_app
 test_app
 temp_test_dir
 
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mailbox", ["INBOX", "sent"])
