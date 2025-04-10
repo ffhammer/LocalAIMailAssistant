@@ -9,3 +9,4 @@ sqlmodel==0.0.24
 ruff
 pre-commit-hooks
 ollama
+pytest-asyncio
