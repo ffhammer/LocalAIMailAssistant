@@ -30,7 +30,7 @@ def start_replying_to_mail(
     try:
         # Format the reply with the original content inline
         formatted_content = format_reply_content_inline(
-            original_content=mail.Content,
+            original_content=mailcontent,
             sender=mail.Sender,
             date_received=mail.Date_Received,
         )

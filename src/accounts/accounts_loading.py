@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 
 class AccountSettings(BaseModel):
+    name: str
     password: str
     imap_server: str
     user: str

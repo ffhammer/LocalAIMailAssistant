@@ -15,8 +15,8 @@ from .endpoints import (
     chats,
     drafts,
     emails,
+    refresh,
     summaries,
-    update,
 )
 from .imap.imap_client import IMAPClient, TestIMAPClient
 from .testing import TEST_ACCOUNT, load_test_messages
@@ -44,7 +44,7 @@ def create_app(settings: Optional[ApiSettings] = None) -> Application:
     app.include_router(summaries.router)
     app.include_router(drafts.router)
     app.include_router(background_tasks.router)
-    app.include_router(update.router)
+    app.include_router(refresh.router)
 
     # Initialize our app context.
     if settings.TEST_BACKEND == "True":

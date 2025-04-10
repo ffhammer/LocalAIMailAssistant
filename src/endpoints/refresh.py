@@ -11,7 +11,7 @@ from ..background_tasks.refresh import refresh_mailbox
 from ..imap.imap_client import list_mailboxes_of_account
 from ..models import UpdateStatus
 
-router = APIRouter(tags=["Update"])
+router = APIRouter(tags=["Refresh"])
 
 
 @router.get("/accounts/{account_id}/status/", response_model=Optional[UpdateStatus])
@@ -24,7 +24,7 @@ def get_last_update_status(account_id: str):
 
 
 @router.post(
-    "/accounts/{account_id}/update",
+    "/accounts/{account_id}/refresh",
     response_class=StreamingResponse,
     response_description="A stream of message_ids for each succesfully saved new mail",
 )

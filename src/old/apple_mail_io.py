@@ -26,7 +26,7 @@ queryFields = {
     "Date_Sent": r"""(date sent of aMessage as text)""",
     "Deleted_Status": r"""(deleted status of aMessage as text)""",
     "Junk_Mail_Status": r"""(junk mail status of aMessage as text)""",
-    "Message_ID": r"""(message id of aMessage as text)""",
+    "message_id": r"""(message id of aMessage as text)""",
     "Reply_To": r"""(reply to of aMessage as text)""",
     "Sender": r"""(sender of aMessage as text)""",
     "Subject": r"""(subject of aMessage as text)""",
@@ -95,7 +95,7 @@ def load_mail_from_apple_mail(
         "Date_Sent": "date sent of aMessage as text",
         "Deleted_Status": "deleted status of aMessage as text",
         "Junk_Mail_Status": "junk mail status of aMessage as text",
-        "Message_ID": "message id of aMessage as text",
+        "message_id": "message id of aMessage as text",
         "Reply_To": "reply to of aMessage as text",
         "Sender": "sender of aMessage as text",
         "Subject": "subject of aMessage as text",
@@ -130,7 +130,7 @@ def load_mail_from_apple_mail(
         Date_Sent=message_data["Date_Sent"],
         Deleted_Status=message_data["Deleted_Status"],
         Junk_Mail_Status=message_data["Junk_Mail_Status"],
-        Message_ID=message_data["Message_ID"],
+        message_id=message_data["message_id"],
         Reply_To=message_data["Reply_To"],
         Sender=message_data["Sender"],
         Subject=message_data["Subject"],
@@ -184,11 +184,13 @@ end tell
 
 def fetch_for_new_mail():
     try:
-        run_apple_script("""
+        run_apple_script(
+            """
     tell application "Mail"
         check for new mail
     end tell
-    """)
+    """
+        )
     except RuntimeError as e:
         return RuntimeError(f"Could not fetch for new mails because of: {e}")
 
@@ -218,7 +220,8 @@ def load_reply_window_for_message(
     """
     sanitized_content = escape_applescript_string(content)
 
-    return run_apple_script(f"""
+    return run_apple_script(
+        f"""
 tell application "Mail"
 {apple_script_snippet_choose_acount_and_mailbox(account=account, mailbox=mailbox)}
     set targetMessage to the first message of targetMailbox whose id is {apple_mail_id}
@@ -228,4 +231,5 @@ tell application "Mail"
         set visible to true
     end tell
 end tell
-""")
+"""
+    )

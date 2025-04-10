@@ -26,7 +26,7 @@ async def fetch_and_save_mails(db: MailDB, uids: List[int], mailbox: str):
             # Save email offloaded as well
             logger.debug(f"Succesfully saved email with uid {uid}")
             await asyncio.to_thread(db.save_email, mail)
-            yield mail.Message_ID
+            yield mail.message_id
 
 
 async def refresh_mailbox(

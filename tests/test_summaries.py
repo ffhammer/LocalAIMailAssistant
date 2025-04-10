@@ -1,5 +1,6 @@
 import time
 
+import pytest
 from fastapi.testclient import TestClient
 
 from src.models import JOB_TYPE, STATUS, JobStatusSQL, MailMessage
@@ -17,11 +18,12 @@ def test_get_summary_none_exists(test_app):
     save_mails(test_app, messages_by_mailbox[mailbox])
 
     email = messages_by_mailbox[mailbox][0]
-    resp = client.get(f"/accounts/test/summaries/{email.Message_ID}")
+    resp = client.get(f"/accounts/test/summaries/{email.message_id}")
     assert resp.status_code == 200
     assert resp.json() is None
 
 
+@pytest.mark.ollama
 def test_queue_summary_job_via_generate_endpoint(test_app):
     with TestClient(test_app.app) as client:
         messages_by_mailbox = load_test_messages(test_app.settings.PATH_TO_TEST_DATA)
@@ -56,6 +58,7 @@ def test_queue_summary_job_via_generate_endpoint(test_app):
             time.sleep(0.1)
 
 
+@pytest.mark.ollama
 def test_queue_summary_jobs_for_all(test_app):
     client = TestClient(test_app.app)
     messages_by_mailbox = load_test_messages(test_app.settings.PATH_TO_TEST_DATA)

@@ -1,5 +1,6 @@
 import time
 
+import pytest
 from fastapi.testclient import TestClient
 
 from src.models import JOB_TYPE, STATUS, EmailChat, JobStatusSQL, MailMessage
@@ -23,16 +24,17 @@ def test_get_default_chat_when_none_exists(test_app):
     mailbox = next(iter(messages_by_mailbox))
     save_mails(test_app, messages_by_mailbox[mailbox])
 
-    email = next((m for m in messages_by_mailbox[mailbox] if m.Reply_To is None), None)
+    email = next((m for m in messages_by_mailbox[mailbox] if m.reply_to is None), None)
     assert email, "No email found without Reply_To in test data."
 
-    resp = client.get(f"/accounts/test/chats/{email.Message_ID}")
+    resp = client.get(f"/accounts/test/chats/{email.message_id}")
     assert resp.status_code == 200
 
     chat = EmailChat.model_validate(resp.json())
-    chat.entries[0].author == email.Sender
+    chat.entries[0].author == email.sender
 
 
+@pytest.mark.ollama
 def test_queue_chat_job_via_generate_endpoint(test_app):
     """
     POST /accounts/{account_id}/chats/generate/{message_id} should queue a chat job.
@@ -44,7 +46,7 @@ def test_queue_chat_job_via_generate_endpoint(test_app):
         # Pick an email with a reply (so that generate_email_chat_with_ollama is applicable)
         mailbox = next(iter(messages_by_mailbox))
         email: MailMessage = next(
-            (m for m in messages_by_mailbox[mailbox] if m.Reply_To is not None), None
+            (m for m in messages_by_mailbox[mailbox] if m.reply_to is not None), None
         )
         save_mails(test_app, messages_by_mailbox[mailbox])
 
@@ -79,6 +81,7 @@ def test_queue_chat_job_via_generate_endpoint(test_app):
             time.sleep(0.1)
 
 
+@pytest.mark.ollama
 def test_queue_chat_jobs_for_all(test_app):
     """
     POST /accounts/{account_id}/chats/generate should queue chat jobs for all emails with a Reply_To.

@@ -4,10 +4,11 @@ from .accounts.accounts_loading import AccountSettings
 from .models.message import MailMessage
 
 TEST_ACCOUNT = AccountSettings(
+    name="test",
     password="",
     imap_server="",
     user="test user",
-    apple_mail_name="not exist",
+    apple_mail_name="test",
     imap_inbox_folder="INBOX",
     imap_sent_folder="sent",
     apple_mail_inbox_folder="nothing",

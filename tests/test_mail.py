@@ -10,6 +10,7 @@ temp_test_dir
 
 
 # GET /accounts/{account_id}/mailboxes/{mailbox}/emails
+@pytest.mark.ollama
 def test_list_emails(test_app):
     settings = test_app.settings
     # Dynamically load expected test messages
@@ -27,23 +28,24 @@ def test_list_emails(test_app):
     resp = client.get(f"/accounts/test/mailboxes/{mailbox}/emails")
     assert resp.status_code == 200
     data = resp.json()
-    returned_ids = sorted(email["Message_ID"] for email in data)
-    expected_ids = sorted(email.Message_ID for email in expected_emails)
+    returned_ids = sorted(email["message_id"] for email in data)
+    expected_ids = sorted(email.message_id for email in expected_emails)
     assert returned_ids == expected_ids
 
 
 # GET /accounts/{account_id}/mailboxes/{mailbox}/emails with filtering
+@pytest.mark.ollama
 def test_list_emails_filtering(test_app):
     settings = test_app.settings
     messages_by_mailbox = load_test_messages(settings.PATH_TO_TEST_DATA)
     mailbox = list(messages_by_mailbox.keys())[0]
-    expected_emails = sorted(messages_by_mailbox[mailbox], key=lambda x: x.Date_Sent)
+    expected_emails = sorted(messages_by_mailbox[mailbox], key=lambda x: x.date_sent)
     if len(expected_emails) < 2:
         pytest.skip("Not enough emails to test filtering.")
-    from_date = expected_emails[1].Date_Sent
-    to_date = expected_emails[-2].Date_Sent
+    from_date = expected_emails[1].date_sent
+    to_date = expected_emails[-2].date_sent
     filtered_expected = [
-        email for email in expected_emails if from_date < email.Date_Sent < to_date
+        email for email in expected_emails if from_date < email.date_sent < to_date
     ]
 
     save_mails(test_app=test_app, mails=expected_emails)
@@ -55,12 +57,13 @@ def test_list_emails_filtering(test_app):
     resp = client.get(url)
     assert resp.status_code == 200
     data = resp.json()
-    returned_ids = sorted(email["Message_ID"] for email in data)
-    expected_ids = sorted(email.Message_ID for email in filtered_expected)
+    returned_ids = sorted(email["message_id"] for email in data)
+    expected_ids = sorted(email.message_id for email in filtered_expected)
     assert returned_ids == expected_ids
 
 
 # GET /accounts/{account_id}/emails/{message_id}
+@pytest.mark.ollama
 def test_get_email_details_valid(test_app):
     settings = test_app.settings
     messages_by_mailbox = load_test_messages(settings.PATH_TO_TEST_DATA)
@@ -71,12 +74,13 @@ def test_get_email_details_valid(test_app):
 
     client = TestClient(test_app.app)
 
-    resp = client.get(f"/accounts/test/emails/{email.Message_ID}")
+    resp = client.get(f"/accounts/test/emails/{email.message_id}")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["Message_ID"] == email.Message_ID
+    assert data["message_id"] == email.message_id
 
 
+@pytest.mark.ollama
 def test_get_email_details_invalid(test_app):
     client = TestClient(test_app.app)
 
