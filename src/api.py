@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from loguru import logger
 
 from .accounts.accounts_loading import load_accounts
-from .app_context import ApiSettings, AppContext, Application
+from .app_context import AppContext, Application
 from .background_tasks.background_manager import BackgroundTaskManager
 from .db import MailDB
 from .endpoints import (
@@ -19,14 +19,15 @@ from .endpoints import (
     summaries,
 )
 from .imap.imap_client import IMAPClient, TestIMAPClient
+from .settings import Settings
 from .testing import TEST_ACCOUNT, load_test_messages
 
 
-def create_app(settings: Optional[ApiSettings] = None) -> Application:
+def create_app(settings: Optional[Settings] = None) -> Application:
     # Override settings if a test configuration is provided.
     if settings is None:
-        settings = ApiSettings()
-    settings: ApiSettings
+        settings = Settings()
+    settings: Settings
 
     logger.level(settings.LOG_LEVEL)
 
@@ -50,14 +51,16 @@ def create_app(settings: Optional[ApiSettings] = None) -> Application:
     if settings.TEST_BACKEND == "True":
         state_accounts = {"test": TEST_ACCOUNT}
         state_dbs = {
-            "test": MailDB(base_dir=settings.TEST_DB_PATH, settings=TEST_ACCOUNT)
+            "test": MailDB(
+                base_dir=settings.TEST_DB_PATH, account=TEST_ACCOUNT, settings=settings
+            )
         }
         state_bg = BackgroundTaskManager(state_dbs, settings.TEST_DB_PATH)
 
         if settings.LOAD_TEST_DATA:
             messages_by_mailbox = load_test_messages(settings.PATH_TO_TEST_DATA)
 
-            with IMAPClient(settings=TEST_ACCOUNT) as client:
+            with IMAPClient(account=TEST_ACCOUNT, settings=settings) as client:
                 client: TestIMAPClient
 
                 for mailbox, messages in messages_by_mailbox.items():
@@ -65,8 +68,12 @@ def create_app(settings: Optional[ApiSettings] = None) -> Application:
     elif settings.TEST_BACKEND == "False":
         state_accounts = load_accounts("secrets/accounts.yaml")
         state_dbs = {
-            account_id: MailDB(base_dir=settings.DEFAULT_DB_DIR, settings=settings)
-            for account_id, settings in state_accounts.items()
+            account_id: MailDB(
+                base_dir=settings.DEFAULT_DB_DIR,
+                account=account_setting,
+                settings=settings,
+            )
+            for account_id, account_setting in state_accounts.items()
         }
         state_bg = BackgroundTaskManager(state_dbs, settings.DEFAULT_DB_DIR)
     else:
@@ -78,6 +85,7 @@ def create_app(settings: Optional[ApiSettings] = None) -> Application:
             accounts=state_accounts,
             dbs=state_dbs,
             background_manager=state_bg,
+            settings=settings,
         ),
         settings=settings,
     )

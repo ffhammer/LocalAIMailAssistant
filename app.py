@@ -1,6 +1,7 @@
-from src.api import ApiSettings, Application, create_app
+from src.api import Application, create_app
+from src.settings import Settings
 
 application: Application = create_app(
-    ApiSettings(TEST_BACKEND="True", LOAD_TEST_DATA=True)
+    Settings(TEST_BACKEND="True", LOAD_TEST_DATA=True)
 )
 app = application.app

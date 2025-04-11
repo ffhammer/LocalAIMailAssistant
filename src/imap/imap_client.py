@@ -11,10 +11,19 @@ from loguru import logger
 
 from ..accounts.accounts_loading import AccountSettings
 from ..models.message import MailMessage, parse_processed_email
+from ..settings import ImapSettings, Settings
 from .flags import MailFlag, parse_all_flags, parse_flags_filtered
 
 
 class ImapClientInterface(ABC):
+    @abstractmethod
+    def __init__(
+        self,
+        account: AccountSettings,
+        settings: Settings,
+    ):
+        super().__init__()
+
     @abstractmethod
     def __enter__(self):
         pass
@@ -66,15 +75,19 @@ class TestIMAPClient(ImapClientInterface):
 
         return cls.instance
 
-    def __init__(self, settings: AccountSettings):
-        # Settings are not used for the test client
+    def __init__(
+        self,
+        account: AccountSettings,
+        settings: Settings,
+    ):
+        self.account = account
+        self.settings: ImapSettings = settings.imap_settings
 
         if self.initialzed:
             return
+        self.messages: dict[int, MailMessage] = {}
+        self.mailboxes: dict[str, list[int]] = {}
 
-        self.messages: dict[int, MailMessage] = {}  # uid -> MailMessage
-        self.mailboxes: dict[str, list[int]] = {}  # mailbox name -> list of uids
-        # Create a default mailbox
         self.mailboxes["INBOX"] = []
 
         self.initialzed = True
@@ -172,7 +185,11 @@ class TestIMAPClient(ImapClientInterface):
 
 
 class RealIMAPClient(ImapClientInterface):
-    def __init__(self, settings: AccountSettings):
+    def __init__(
+        self,
+        account: AccountSettings,
+        settings: Settings,
+    ):
         """
         Initialize the IMAPClient and establish a connection.
 
@@ -181,8 +198,9 @@ class RealIMAPClient(ImapClientInterface):
         :param password: Email password.
         :param input_port: IMAP server port (default 993 for SSL).
         """
-        self.settings = settings
-        self.mail = None  # IMAP connection object
+        self.account = account
+        self.settings: ImapSettings = settings.imap_settings
+        self.conection = None  # IMAP connection object
 
     def __enter__(self):
         self.connect()
@@ -195,10 +213,10 @@ class RealIMAPClient(ImapClientInterface):
         """Connect to the IMAP server and authenticate."""
         try:
             logger.info("start login")
-            self.mail = imaplib.IMAP4_SSL(
-                self.settings.imap_server, port=self.settings.input_port, timeout=5
+            self.conection = imaplib.IMAP4_SSL(
+                self.account.imap_server, port=self.account.input_port, timeout=5
             )
-            self.mail.login(self.settings.user, self.settings.password)
+            self.conection.login(self.account.user, self.account.password)
             logger.info("login finished")
         except imaplib.IMAP4.error as e:
             raise ConnectionError(
@@ -207,14 +225,14 @@ class RealIMAPClient(ImapClientInterface):
 
     def logout(self):
         """Log out from the IMAP server."""
-        if self.mail:
+        if self.conection:
             try:
-                self.mail.logout()
+                self.conection.logout()
             except Exception as e:
                 logger.error(f"Error while logging out: {e}")
 
     def _select(self, mailbox: str, readonly: bool = False) -> None:
-        status, _ = self.mail.select(mailbox=mailbox, readonly=readonly)
+        status, _ = self.conection.select(mailbox=mailbox, readonly=readonly)
         if status != "OK":
             raise Exception(f"selecting mailbox {mailbox} failed")
 
@@ -228,12 +246,12 @@ class RealIMAPClient(ImapClientInterface):
     ) -> list[int]:
         if mailbox not in self.list_mailboxes():
             raise ValueError("mailbox is not found")
-        if self.mail is None:
+        if self.conection is None:
             raise PermissionError("You need to call the server as a context")
         self._select(mailbox, readonly=True)
         criteria = f"(SINCE {after_date.strftime('%d-%b-%Y')})" if after_date else "ALL"
 
-        result, data = self.mail.uid("SEARCH", None, criteria)
+        result, data = self.conection.uid("SEARCH", None, criteria)
         self._check_result_throw(result, "Failed to fetch UIDs")
 
         return [int(uid) for uid in data[0].split()]
@@ -241,11 +259,11 @@ class RealIMAPClient(ImapClientInterface):
     def fetch_email_by_uid(
         self, uid: int, mailbox: str = "INBOX"
     ) -> Optional[MailMessage]:
-        if self.mail is None:
+        if self.conection is None:
             raise PermissionError("You need to call the server as a context")
         self._select(mailbox)
         try:
-            result, data = self.mail.uid("FETCH", str(uid), "(RFC822)")
+            result, data = self.conection.uid("FETCH", str(uid), "(RFC822)")
             if result != "OK" or not data or not isinstance(data[0], tuple):
                 return None
             msg = email.message_from_bytes(data[0][1], policy=default)
@@ -256,18 +274,18 @@ class RealIMAPClient(ImapClientInterface):
         return parse_processed_email(msg, mailbox, uid)
 
     def list_mailboxes(self) -> list[str]:
-        if self.mail is None:
+        if self.conection is None:
             raise PermissionError("You need to call the server as a context")
-        result, mailboxes = self.mail.list()
+        result, mailboxes = self.conection.list()
         self._check_result_throw(result, "Failed to list mailboxes")
 
         return [m.decode().split()[-1].strip('"') for m in mailboxes]
 
     def get_mailbox_quota(self, mailbox: str = "INBOX") -> Optional[tuple[int, int]]:
-        if self.mail is None:
+        if self.conection is None:
             raise PermissionError("You need to call the server as a context")
         try:
-            result, data = self.mail.getquota(f'"{mailbox}"')
+            result, data = self.conection.getquota(f'"{mailbox}"')
             if result != "OK" or not data:
                 return None
             parts = data[0].decode().split()
@@ -282,12 +300,12 @@ class RealIMAPClient(ImapClientInterface):
         self, mailbox: str = "INBOX"
     ) -> dict[int, tuple[MailFlag]]:
         self._select(mailbox=mailbox, readonly=True)
-        typ, data = self.mail.search(None, "ALL")
+        typ, data = self.conection.search(None, "ALL")
         self._check_result_throw(typ, f"can't get {mailbox} numbers")
 
         msg_ids = data[0].split()
         msg_range = f"{msg_ids[0].decode()}:{msg_ids[-1].decode()}"
-        typ, data = self.mail.fetch(msg_range, "(FLAGS)")
+        typ, data = self.conection.fetch(msg_range, "(FLAGS)")
         self._check_result_throw("Failed to fetch flags")
 
         return parse_flags_filtered(data=data)
@@ -298,7 +316,7 @@ class RealIMAPClient(ImapClientInterface):
         Uses the STORE command with FLAGS to replace existing flags.
         Raises imaplib.IMAP4.error if the update fails.
         """
-        if self.mail is None:
+        if self.conection is None:
             raise ConnectionError("IMAP client is not connected.")
 
         # Select the mailbox (MUST NOT be readonly for STORE)
@@ -307,7 +325,7 @@ class RealIMAPClient(ImapClientInterface):
         )
         self._select(mailbox=mail.mailbox, readonly=False)
 
-        typ, data = self.mail.uid("FETCH", str(mail.id), "(FLAGS)")
+        typ, data = self.conection.uid("FETCH", str(mail.id), "(FLAGS)")
         self._check_result_throw(
             typ, f"can't fetch mail with uid {mail.id} in mailbox {mail.mailbox}"
         )
@@ -335,7 +353,7 @@ class RealIMAPClient(ImapClientInterface):
             logger.debug(
                 f"Removing flags {formatted_flags} for UID {mail.id} in mailbox '{mail.mailbox}'"
             )
-            store_status, response = self.mail.uid(
+            store_status, response = self.conection.uid(
                 "STORE", str(mail.id), "-FLAGS", formatted_flags
             )
 
@@ -350,7 +368,7 @@ class RealIMAPClient(ImapClientInterface):
             logger.info(
                 f"Adding flags {formatted_flags} for UID {mail.id} in mailbox '{mail.mailbox}'"
             )
-            store_status, response = self.mail.uid(
+            store_status, response = self.conection.uid(
                 "STORE", str(mail.id), "+FLAGS", formatted_flags
             )
             self._check_result_throw(
@@ -368,9 +386,11 @@ IMAPClient: ImapClientInterface = (
 )
 
 
-def list_mailboxes_of_account(account: AccountSettings) -> Optional[list[str]]:
+def list_mailboxes_of_account(
+    account: AccountSettings, settings: Settings
+) -> Optional[list[str]]:
     try:
-        with IMAPClient(settings=account) as client:
+        with IMAPClient(account=account, settings=settings) as client:
             return client.list_mailboxes()
     except Exception:
         logger.exception("list_mailboxes failed")

@@ -29,7 +29,9 @@ def list_emails(
     if account_id not in context.dbs:
         raise HTTPException(status_code=404, detail="Account not found")
 
-    if mailbox not in list_mailboxes_of_account(context.accounts[account_id]):
+    if mailbox not in list_mailboxes_of_account(
+        context.accounts[account_id], settings=context.settings
+    ):
         raise HTTPException(status_code=404, detail="Mailbox not found")
 
     db = context.dbs[account_id]

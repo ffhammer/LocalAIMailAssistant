@@ -33,4 +33,6 @@ def list_mailboxes(account_id: str):
     context: AppContext = Application.get_current_context()
     if account_id not in context.dbs:
         raise HTTPException(status_code=404, detail="Account not found")
-    return list_mailboxes_of_account(context.accounts[account_id])
+    return list_mailboxes_of_account(
+        context.accounts[account_id], settings=context.settings
+    )

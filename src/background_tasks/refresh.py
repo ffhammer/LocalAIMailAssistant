@@ -13,7 +13,7 @@ from src.models import MailFlag
 
 async def fetch_and_save_mails(db: MailDB, uids: List[int], mailbox: str):
     """Async generator: for each UID, fetch and save the mail, then yield the UID."""
-    with IMAPClient(settings=db.settings) as client:
+    with IMAPClient(account=db.account, settings=db.settings) as client:
         for uid in uids:
             # Offload the blocking fetch operation
             mail = await asyncio.to_thread(client.fetch_email_by_uid, uid, mailbox)
@@ -38,7 +38,7 @@ async def refresh_mailbox(
         else:
             after_date = datetime.now() - timedelta(days=60)
 
-    with IMAPClient(settings=db.settings) as client:
+    with IMAPClient(account=db.account, settings=db.settings) as client:
         new_mail_ids = client.fetch_uids_after_date(
             after_date=after_date, mailbox=mailbox
         )
@@ -64,7 +64,7 @@ async def refresh_mailbox(
 async def sync_account(db: MailDB):
     last_mailboxes = {mail.mailbox for mail in db.query_table(MailMessageSQL)}
 
-    with IMAPClient(settings=db.settings) as client:
+    with IMAPClient(account=db.account, settings=db.settings) as client:
         client: ImapClientInterface
         current_mailboxes = set(client.list_mailboxes())
 
@@ -128,7 +128,7 @@ def toggle_flag(
 
     try:
         # Update the flag on the IMAP server
-        with IMAPClient(settings=db.settings) as client:
+        with IMAPClient(account=db.account, settings=db.settings) as client:
             client: ImapClientInterface
             client.update_flags(mail=res.value)
     except Exception as e:

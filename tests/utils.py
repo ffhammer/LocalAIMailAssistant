@@ -3,8 +3,9 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-from src.api import ApiSettings, Application, create_app
+from src.api import Application, create_app
 from src.models import JobStatus, MailMessage
+from src.settings import Settings
 
 
 @pytest.fixture(scope="function")
@@ -16,7 +17,7 @@ def temp_test_dir(tmp_path_factory) -> str:
 
 @pytest.fixture(scope="function")
 def test_app(temp_test_dir: str) -> Application:
-    test_settings = ApiSettings(
+    test_settings = Settings(
         TEST_BACKEND="True",
         TEST_DB_PATH=temp_test_dir,
         LOAD_TEST_DATA=True,

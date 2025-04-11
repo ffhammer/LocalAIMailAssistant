@@ -23,6 +23,7 @@ from src.models import (
 
 from ..accounts.accounts_loading import AccountSettings
 from ..ollama.chats import generate_default_chat
+from ..settings import Settings
 from ..utils import LogLevel, return_error_and_log
 
 EmailDraftSQL  # for create all
@@ -30,9 +31,11 @@ TABLE_TYPE = TypeVar("TABLE_TYPE", bound=SQLModel)
 
 
 class MailDB:
-    def __init__(self, base_dir: str, settings: AccountSettings):
-        self.settings = settings
-        self.path = Path(base_dir) / settings.name
+    def __init__(self, base_dir: str, account: AccountSettings, settings: Settings):
+        self.settings: Settings = settings
+        self.account: AccountSettings = account
+
+        self.path = Path(base_dir) / account.name
         self.path.mkdir(parents=True, exist_ok=True)
 
         self.contents_folder = self.path / "contents"
