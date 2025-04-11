@@ -9,14 +9,17 @@ from src.database.mail_db import (
     MailDB,
 )
 
+from ..llms.chats import EmailChat, generate_email_chat_with_llm
+from ..llms.drafts import EmailDraftSQL, generate_draft_with_llm
+from ..llms.summary import generate_summary_with_llm
 from ..models.message import MailMessage
-from ..ollama.chats import EmailChat, generate_email_chat_with_ollama
-from ..ollama.drafts import EmailDraftSQL, generate_draft_with_ollama
-from ..ollama.summary import generate_summary
+from ..settings import Settings
 from ..utils import LogLevel, return_error_and_log
 
 
-def generate_and_save_chat(db: MailDB, email_message_id: str) -> Result[EmailChat, str]:
+def generate_and_save_chat(
+    db: MailDB, email_message_id: str, settings: Settings
+) -> Result[EmailChat, str]:
     # Retrieve the MailMessage from the database by message_id
     mail: Optional[MailMessage] = db.get_email_by_message_id(email_message_id)
     if mail is None:
@@ -28,7 +31,7 @@ def generate_and_save_chat(db: MailDB, email_message_id: str) -> Result[EmailCha
         logger.debug(
             f"Generating chat for email\n{'-' * 100}\n{mail.content}\n{'-' * 100}"
         )
-        chat: EmailChat = generate_email_chat_with_ollama(mail)
+        chat: EmailChat = generate_email_chat_with_llm(mail, settings=settings)
         logger.debug(f"Chat generated:\n{chat.model_dump_json(indent=2)}")
 
         db.add_value(
@@ -49,7 +52,9 @@ def generate_and_save_chat(db: MailDB, email_message_id: str) -> Result[EmailCha
         )
 
 
-def generate_and_save_summary(db: MailDB, email_message_id: str) -> Result[str, str]:
+def generate_and_save_summary(
+    db: MailDB, email_message_id: str, settings: Settings
+) -> Result[str, str]:
     # Check if a summary already exists for this email
     existing_summary: Optional[EmailSummarySQL] = db.query_first_item(
         EmailSummarySQL, EmailSummarySQL.email_message_id == email_message_id
@@ -68,7 +73,7 @@ def generate_and_save_summary(db: MailDB, email_message_id: str) -> Result[str, 
     chat: EmailChat = chat_return.ok()
 
     try:
-        summary_text = generate_summary(chat)
+        summary_text = generate_summary_with_llm(chat, settings=settings)
         logger.debug(
             f"Summary generated for {email_message_id}:\n{'-' * 100}\n{summary_text}\n{'-' * 100}"
         )
@@ -91,7 +96,9 @@ def generate_and_save_summary(db: MailDB, email_message_id: str) -> Result[str, 
         )
 
 
-def generate_and_save_draft(db: MailDB, message_id: str) -> Result[EmailDraftSQL, str]:
+def generate_and_save_draft(
+    db: MailDB, message_id: str, settings: Settings
+) -> Result[EmailDraftSQL, str]:
     mail: Optional[MailMessage] = db.get_email_by_message_id(message_id)
     if mail is None:
         return return_error_and_log(f"Mail with message_id {message_id} not found.")
@@ -122,12 +129,13 @@ def generate_and_save_draft(db: MailDB, message_id: str) -> Result[EmailDraftSQL
             f"Generating draft {version_number} {message_id}, with {len(context_chats)} context chats and {existing_drafts} existing drafts"
         )
 
-        res = generate_draft_with_ollama(
+        res = generate_draft_with_llm(
             message_id=message_id,
             current_chat=message_chat_res.ok_value,
             context_chats=context_chats,
             previous_drafts=existing_drafts,
             current_version=version_number,
+            settings=settings,
         )
         db.add_value(res)
         logger.debug(f"Succesfully generated draft {version_number} {message_id}")

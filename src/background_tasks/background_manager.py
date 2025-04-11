@@ -8,6 +8,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 from ..database import MailDB
 from ..models import JOB_TYPE, STATUS, JobStatus, JobStatusSQL
+from ..settings import Settings
 from .tasks import (
     generate_and_save_chat,
     generate_and_save_draft,
@@ -22,8 +23,11 @@ JOB_FUNCS = job_funcs = {
 
 
 class BackgroundTaskManager:
-    def __init__(self, dbs: dict[str, MailDB], base_dir: str = "db/status.sql"):
+    def __init__(
+        self, dbs: dict[str, MailDB], settings, base_dir: str = "db/status.sql"
+    ):
         self.dbs = dbs
+        self.settings: Settings = settings
         self.engine = create_engine(f"sqlite:///{base_dir}/status.sql", echo=False)
         SQLModel.metadata.create_all(self.engine)
 
@@ -74,6 +78,7 @@ class BackgroundTaskManager:
             JOB_FUNCS[job.job_type],
             self.dbs[job.account_id],
             job.email_message_id,
+            self.settings,
         )
 
         if is_err(result):

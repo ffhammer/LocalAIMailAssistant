@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
@@ -14,5 +16,12 @@ class Settings(BaseSettings):
     TEST_DB_PATH: str = "test_db"
     DEFAULT_DB_DIR: str = "db"
     LOAD_TEST_DATA: bool = True
-
+    llm_provider: Literal["ollama", "gemini"] = "ollama"
     imap_settings: ImapSettings = ImapSettings()
+
+
+class LLMSettings(BaseSettings):
+    chat_extractor_moedel: str = "gemma3:12b"
+    summary_model: str = "llama3.2"
+    draft_generator_model: str = "gemma3:12b"
+    gemini_model: str = "gemini-2.0-flash"

@@ -56,7 +56,9 @@ def create_app(settings: Optional[Settings] = None) -> Application:
                 base_dir=settings.TEST_DB_PATH, account=TEST_ACCOUNT, settings=settings
             )
         }
-        state_bg = BackgroundTaskManager(state_dbs, settings.TEST_DB_PATH)
+        state_bg = BackgroundTaskManager(
+            state_dbs, settings=settings, base_dir=settings.TEST_DB_PATH
+        )
 
         if settings.LOAD_TEST_DATA:
             messages_by_mailbox = load_test_messages(settings.PATH_TO_TEST_DATA)
@@ -76,7 +78,9 @@ def create_app(settings: Optional[Settings] = None) -> Application:
             )
             for account_id, account_setting in state_accounts.items()
         }
-        state_bg = BackgroundTaskManager(state_dbs, settings.DEFAULT_DB_DIR)
+        state_bg = BackgroundTaskManager(
+            state_dbs, settings=settings, base_dir=settings.DEFAULT_DB_DIR
+        )
     else:
         raise ValueError("TEST_BACKEND must be 'True' or 'False'")
 

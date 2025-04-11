@@ -9,7 +9,7 @@ from sqlmodel import JSON, Column, Field, SQLModel
 class ChatEntry(BaseModel):
     author: str
     date_sent: datetime
-    enty_content: str
+    entry_content: str
 
 
 class EmailChat(BaseModel):
@@ -38,7 +38,7 @@ class EmailChat(BaseModel):
             {
                 "author": e.author,
                 "date_sent": e.date_sent.isoformat(),
-                "content": e.enty_content.strip(),
+                "content": e.entry_content.strip(),
                 "focus": i == len(sorted_entries) - 1,
             }
             for i, e in enumerate(sorted_entries)

@@ -22,7 +22,7 @@ from src.models import (
 )
 
 from ..accounts.accounts_loading import AccountSettings
-from ..ollama.chats import generate_default_chat
+from ..llms.chats import generate_default_chat
 from ..settings import Settings
 from ..utils import LogLevel, return_error_and_log
 
