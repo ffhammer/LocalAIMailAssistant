@@ -7,8 +7,8 @@ from result import Err, Result, is_err
 from sqlmodel import Session, select
 
 from src.db.mail_db import MailDB, MailMessage, MailMessageSQL, UpdateStatus
-
-from ..imap.imap_client import IMAPClient, ImapClientInterface
+from src.imap.imap_client import IMAPClient, ImapClientInterface
+from src.models import MailFlag
 
 
 async def fetch_and_save_mails(db: MailDB, uids: List[int], mailbox: str):
@@ -77,10 +77,12 @@ async def sync_account(db: MailDB):
         for mailbox in new_mailboxes:
             logger.info(f"Creating New Mailbox {mailbox}")
             new_mail_ids = client.fetch_uids_after_date(mailbox=mailbox)
-            # use list to iterate here
-            list(fetch_and_save_mails(db=db, uids=new_mail_ids, mailbox=mailbox))
+            async for _ in fetch_and_save_mails(
+                db=db, uids=new_mail_ids, mailbox=mailbox
+            ):
+                pass
 
-        unchanged_mailboxes = new_mailboxes.difference(current_mailboxes)
+        unchanged_mailboxes = last_mailboxes.intersection(current_mailboxes)
         for mailbox in unchanged_mailboxes:
             mail_ids = set(client.fetch_uids_after_date(mailbox=mailbox))
 
@@ -102,7 +104,10 @@ async def sync_account(db: MailDB):
                 )
 
             new_mails = mail_ids.difference(already_saved)
-            list(fetch_and_save_mails(db=db, uids=list(new_mails), mailbox=mailbox))
+            async for _ in fetch_and_save_mails(
+                db=db, uids=list(new_mails), mailbox=mailbox
+            ):
+                pass
 
         # update flags
         for mailbox in current_mailboxes:
@@ -111,7 +116,9 @@ async def sync_account(db: MailDB):
 
 
 def toggle_flag(
-    db: MailDB, email_message_id: str, flag: MailMessageSQL
+    db: MailDB,
+    email_message_id: str,
+    flag: MailFlag,
 ) -> Result[MailMessage, str]:
     """Toggle a flag for an email message in the database and update it on the server."""
     # Toggle the flag in the database
