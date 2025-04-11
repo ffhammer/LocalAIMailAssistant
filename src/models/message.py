@@ -61,7 +61,7 @@ def parse_processed_email(msg: EmailMessage, mailbox: str, uid: int) -> MailMess
 
 class MailMessageSQL(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    mailbox: str
+    mailbox: str = Field(index=True)
     content_file: str
     date_received: datetime
     date_sent: datetime
@@ -72,7 +72,7 @@ class MailMessageSQL(SQLModel, table=True):
     sender: EmailStr
     subject: Optional[str]
     was_replied_to: bool = False
-    imap_uid: int
+    imap_uid: int = Field(index=True)
     seen: bool = False
     answered: bool = False
     flagged: bool = False

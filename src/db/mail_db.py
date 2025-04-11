@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Optional, TypeVar
 
 from loguru import logger
-from result import Ok, Result
+from result import Err, Ok, Result
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from src.models import (
@@ -13,6 +13,7 @@ from src.models import (
     EmailChatSQL,
     EmailDraftSQL,
     EmailSummarySQL,
+    MailFlag,
     MailMessage,
     MailMessageSQL,
     UpdateStatus,
@@ -180,3 +181,69 @@ class MailDB:
             )
 
         return Ok(sql_email_chat_to_email_chat(chat))
+
+    def delete_records(self, table_model: SQLModel, *where_clauses) -> None:
+        with Session(self.engine) as session:
+            stmt = select(table_model)
+            for clause in where_clauses:
+                stmt = stmt.where(clause)
+            records = session.exec(stmt).all()
+            for record in records:
+                if hasattr(record, "content_file"):
+                    content_path = Path(record.content_file)
+                    if content_path.exists():
+                        try:
+                            os.remove(content_path)
+                        except Exception as exc:
+                            logger.error(f"Error deleting {content_path}: {exc}")
+                session.delete(record)
+            session.commit()
+
+    def update_flags(self, data: dict[str, tuple[MailFlag]], mailbox) -> None:
+        for uid, flags in data.items():
+            mails: list[MailMessageSQL] = self.query_table(
+                MailMessageSQL,
+                MailMessageSQL.mailbox == mailbox,
+                MailMessageSQL.imap_uid == uid,
+            )
+
+            if len(mails) == 0:
+                logger.error(f"Can't find mail with uid {uid} in mailbox {mailbox}")
+                continue
+            elif len(mails) > 1:
+                logger.warning(
+                    f"Found multiple mails with uid {uid} in mailbox {mailbox}. Update all "
+                )
+
+            for mail in mails:
+                mail.seen = MailFlag.Seen in flags
+                mail.answered = MailFlag.Answered in flags
+                mail.flagged = MailFlag.Flagged in flags
+
+            with Session(self.engine) as session:
+                for mail in mails:
+                    session.add(mail)
+                session.commit()
+
+    def toggle_flag(
+        self, email_message_id: str, flag: MailFlag
+    ) -> Result[MailMessage, str]:
+        mail: MailMessageSQL = self.query_first_item(
+            MailMessageSQL, MailMessageSQL.message_id == email_message_id
+        )
+
+        if mail is None:
+            return Err(f"can't find mail {email_message_id}")
+
+        if flag == MailFlag.Answered:
+            mail.answered = not mail.answered
+        if flag == MailFlag.Seen:
+            mail.seen = not mail.seen
+        if flag == MailFlag.Flagged:
+            mail.flagged = not mail.flagged
+
+        with Session(self.engine) as session:
+            session.add(mail)
+            session.commit()
+
+        return Ok(sql_email_chat_to_email_chat(mail))
