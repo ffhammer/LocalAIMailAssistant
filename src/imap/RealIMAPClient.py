@@ -1,5 +1,6 @@
 import email
 import imaplib
+import time
 from datetime import datetime
 from email.policy import default
 from typing import Optional
@@ -30,7 +31,7 @@ class RealIMAPClient(ImapClientInterface):
         """
         self.account = account
         self.settings: ImapSettings = settings.imap_settings
-        self.conection = None  # IMAP connection object
+        self.connection = None  # IMAP connection object
 
     def __enter__(self):
         self.connect()
@@ -43,10 +44,10 @@ class RealIMAPClient(ImapClientInterface):
         """Connect to the IMAP server and authenticate."""
         try:
             logger.info("start login")
-            self.conection = imaplib.IMAP4_SSL(
+            self.connection = imaplib.IMAP4_SSL(
                 self.account.imap_server, port=self.account.input_port, timeout=5
             )
-            self.conection.login(self.account.user, self.account.password)
+            self.connection.login(self.account.user, self.account.password)
             logger.info("login finished")
         except imaplib.IMAP4.error as e:
             raise ConnectionError(
@@ -55,20 +56,35 @@ class RealIMAPClient(ImapClientInterface):
 
     def logout(self):
         """Log out from the IMAP server."""
-        if self.conection:
+        if self.connection:
             try:
-                self.conection.logout()
+                self.connection.logout()
             except Exception as e:
                 logger.error(f"Error while logging out: {e}")
 
-    def _select(self, mailbox: str, readonly: bool = False) -> None:
-        status, _ = self.conection.select(mailbox=mailbox, readonly=readonly)
-        if status != "OK":
-            raise Exception(f"selecting mailbox {mailbox} failed")
+    def _retry(self, func, *args, **kwargs):
+        attempts = self.settings.max_retries
+        while attempts > 0:
+            try:
+                return func(*args, **kwargs)
+            except (imaplib.IMAP4.error, Exception) as e:
+                logger.error(f"Error: {e}. Reconnecting...")
+                self.logout()
+                time.sleep(self.settings.retry_delay)
+                self.connect()
+                attempts -= 1
+        raise Exception("Max retry attempts reached.")
 
-    def _check_result_throw(self, result, msg="not received OK from imap") -> None:
+    def _select(self, mailbox: str, readonly: bool = False) -> None:
+        def _select_mailbox():
+            return self.connection.select(mailbox=mailbox, readonly=readonly)
+
+        status, _ = self._retry(_select_mailbox)
+        self._raise_on_status(status, f"selecting mailbox {mailbox} failed")
+
+    def _raise_on_status(self, result, msg="not received OK from imap") -> None:
         if result != "OK":
-            logger.error(msg)
+            logger.error(f"{msg} - received: {result}")
             raise imaplib.IMAP4.error(msg)
 
     def fetch_uids_after_date(
@@ -76,87 +92,82 @@ class RealIMAPClient(ImapClientInterface):
     ) -> list[int]:
         if mailbox not in self.list_mailboxes():
             raise ValueError("mailbox is not found")
-        if self.conection is None:
+        if self.connection is None:
             raise PermissionError("You need to call the server as a context")
         self._select(mailbox, readonly=True)
         criteria = f"(SINCE {after_date.strftime('%d-%b-%Y')})" if after_date else "ALL"
 
-        result, data = self.conection.uid("SEARCH", None, criteria)
-        self._check_result_throw(result, "Failed to fetch UIDs")
+        def _fetch_uids():
+            return self.connection.uid("SEARCH", None, criteria)
 
+        result, data = self._retry(_fetch_uids)
+        self._raise_on_status(result, "Failed to fetch UIDs")
         return [int(uid) for uid in data[0].split()]
 
     def fetch_email_by_uid(
         self, uid: int, mailbox: str = "INBOX"
     ) -> Optional[MailMessage]:
-        if self.conection is None:
+        if self.connection is None:
             raise PermissionError("You need to call the server as a context")
         self._select(mailbox)
-        try:
-            result, data = self.conection.uid("FETCH", str(uid), "(RFC822)")
-            if result != "OK" or not data or not isinstance(data[0], tuple):
-                return None
-            msg = email.message_from_bytes(data[0][1], policy=default)
-        except TimeoutError:
-            logger.error(f"received timeout error for uid: '{uid}'")
-            return None
 
+        def _fetch_by_uid():
+            return self.connection.uid("FETCH", str(uid), "(RFC822)")
+
+        result, data = self._retry(_fetch_by_uid)
+        if result != "OK" or not data or not isinstance(data[0], tuple):
+            return None
+        msg = email.message_from_bytes(data[0][1], policy=default)
         return parse_processed_email(msg, mailbox, uid)
 
     def list_mailboxes(self) -> list[str]:
-        if self.conection is None:
-            raise PermissionError("You need to call the server as a context")
-        result, mailboxes = self.conection.list()
-        self._check_result_throw(result, "Failed to list mailboxes")
+        def _list_collections():
+            return self.connection.list()
 
+        result, mailboxes = self._retry(_list_collections)
+        self._raise_on_status(result, "Failed to list mailboxes")
         return [m.decode().split()[-1].strip('"') for m in mailboxes]
 
     def get_mailbox_quota(self, mailbox: str = "INBOX") -> Optional[tuple[int, int]]:
-        if self.conection is None:
-            raise PermissionError("You need to call the server as a context")
-        try:
-            result, data = self.conection.getquota(f'"{mailbox}"')
-            if result != "OK" or not data:
-                return None
-            parts = data[0].decode().split()
-            used = int(parts[-3])
-            total = int(parts[-2])
-            return total, used
-        except Exception:
-            logger.exception("get quota failed")
+        def _get_quota():
+            return self.connection.getquota(f'"{mailbox}"')
+
+        result, data = self._retry(_get_quota)
+
+        if result != "OK" or not data:
             return None
+        parts = data[0].decode().split()
+        used = int(parts[-3])
+        total = int(parts[-2])
+        return total, used
 
     def fetch_all_flags_off_mailbox(
         self, mailbox: str = "INBOX"
     ) -> dict[int, tuple[MailFlag]]:
         self._select(mailbox=mailbox, readonly=True)
-        typ, data = self.conection.search(None, "ALL")
-        self._check_result_throw(typ, f"can't get {mailbox} numbers")
+
+        def __fetch_all():
+            return self.connection.search(None, "ALL")
+
+        typ, data = self._retry(__fetch_all)
+        self._raise_on_status(typ, f"can't get {mailbox} numbers")
 
         msg_ids = data[0].split()
         msg_range = f"{msg_ids[0].decode()}:{msg_ids[-1].decode()}"
-        typ, data = self.conection.fetch(msg_range, "(FLAGS)")
-        self._check_result_throw("Failed to fetch flags")
 
+        def __fetch_flags():
+            return self.connection.fetch(msg_range, "(FLAGS)")
+
+        typ, data = self._retry(__fetch_flags)
+        self._raise_on_status(typ, "Failed to fetch flags")
         return parse_flags_filtered(data=data)
 
-    def update_flags(self, mail: MailMessage):
-        """
-        Update the flags for a specific email UID on the IMAP server.
-        Uses the STORE command with FLAGS to replace existing flags.
-        Raises imaplib.IMAP4.error if the update fails.
-        """
-        if self.conection is None:
-            raise ConnectionError("IMAP client is not connected.")
+    def _get_existing_flags(self, mail: MailMessage) -> set[MailFlag]:
+        def _fetch_uids():
+            return self.connection.uid("FETCH", str(mail.id), "(FLAGS)")
 
-        # Select the mailbox (MUST NOT be readonly for STORE)
-        logger.debug(
-            f"Selecting mailbox '{mail.mailbox}' for flag update (UID: {mail.id})"
-        )
-        self._select(mailbox=mail.mailbox, readonly=False)
-
-        typ, data = self.conection.uid("FETCH", str(mail.id), "(FLAGS)")
-        self._check_result_throw(
+        typ, data = self._retry(_fetch_uids)
+        self._raise_on_status(
             typ, f"can't fetch mail with uid {mail.id} in mailbox {mail.mailbox}"
         )
 
@@ -164,7 +175,58 @@ class RealIMAPClient(ImapClientInterface):
         if val is None:
             raise Exception(f"can't parse flags to update correctly from {data}")
 
-        existing_flags = set(val[1])
+        return set(val[1])
+
+    def _remove_flags(self, mail: MailMessage, flags_to_remove: set[MailFlag]) -> None:
+        if not flags_to_remove:
+            return
+
+        formatted_flags = f"({' '.join(flags_to_remove)})"
+        logger.debug(
+            f"Removing flags {formatted_flags} for UID {mail.id} in mailbox '{mail.mailbox}'"
+        )
+
+        def _minus_flags():
+            return self.connection.uid("STORE", str(mail.id), "-FLAGS", formatted_flags)
+
+        store_status, response = self._retry(_minus_flags)
+
+        self._raise_on_status(
+            store_status,
+            f"Failed to remove flags for UID {mail.id}. Server response: {response}",
+        )
+
+    def _add_flags(self, mail: MailMessage, flags_to_add: set[MailFlag]) -> None:
+        if not flags_to_add:
+            return
+
+        formatted_flags = f"({' '.join(flags_to_add)})"
+        logger.info(
+            f"Adding flags {formatted_flags} for UID {mail.id} in mailbox '{mail.mailbox}'"
+        )
+
+        def _add_flags():
+            return self.connection.uid("STORE", str(mail.id), "+FLAGS", formatted_flags)
+
+        store_status, response = self._retry(_add_flags)
+        self._raise_on_status(
+            store_status,
+            f"Failed to add flags for UID {mail.id}. Server response: {response}",
+        )
+
+    def update_flags(self, mail: MailMessage):
+        """
+        Update the flags for a specific email UID on the IMAP server.
+        Uses the STORE command with FLAGS to replace existing flags.
+        Raises imaplib.IMAP4.error if the update fails.
+        """
+        # Select the mailbox (MUST NOT be readonly for STORE)
+        logger.debug(
+            f"Selecting mailbox '{mail.mailbox}' for flag update (UID: {mail.id})"
+        )
+        self._select(mailbox=mail.mailbox, readonly=False)
+
+        existing_flags = self._get_existing_flags(mail=mail)
 
         desired_flags = set()
         if mail.seen:
@@ -177,34 +239,8 @@ class RealIMAPClient(ImapClientInterface):
         flags_to_add = desired_flags - existing_flags
         flags_to_remove = existing_flags - desired_flags
 
-        # Remove unwanted flags
-        if flags_to_remove:
-            formatted_flags = f"({' '.join(flags_to_remove)})"
-            logger.debug(
-                f"Removing flags {formatted_flags} for UID {mail.id} in mailbox '{mail.mailbox}'"
-            )
-            store_status, response = self.conection.uid(
-                "STORE", str(mail.id), "-FLAGS", formatted_flags
-            )
-
-            self._check_result_throw(
-                store_status,
-                f"Failed to remove flags for UID {mail.id}. Server response: {response}",
-            )
-
-        # Add desired flags
-        if flags_to_add:
-            formatted_flags = f"({' '.join(flags_to_add)})"
-            logger.info(
-                f"Adding flags {formatted_flags} for UID {mail.id} in mailbox '{mail.mailbox}'"
-            )
-            store_status, response = self.conection.uid(
-                "STORE", str(mail.id), "+FLAGS", formatted_flags
-            )
-            self._check_result_throw(
-                store_status,
-                f"Failed to add flags for UID {mail.id}. Server response: {response}",
-            )
+        self._remove_flags(mail=mail, flags_to_remove=flags_to_remove)
+        self._add_flags(mail=mail, flags_to_add=flags_to_add)
 
         logger.debug(
             f"Successfully updated flags for UID {mail.id} to {desired_flags}."
