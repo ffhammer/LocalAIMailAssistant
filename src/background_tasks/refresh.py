@@ -7,7 +7,8 @@ from result import Err, Result, is_err
 from sqlmodel import Session, select
 
 from src.database.mail_db import MailDB, MailMessage, MailMessageSQL, UpdateStatus
-from src.imap.imap_client import IMAPClient, ImapClientInterface
+from src.imap import IMAPClient
+from src.imap.ImapClientInterface import ImapClientInterface
 from src.models import MailFlag
 
 

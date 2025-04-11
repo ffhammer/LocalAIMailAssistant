@@ -4,7 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 
 from ..app_context import Application
-from ..imap.imap_client import list_mailboxes_of_account
+from ..imap import list_mailboxes_of_account
 from ..models import MailMessage, MailMessageSQL
 
 router = APIRouter(tags=["Emails"])

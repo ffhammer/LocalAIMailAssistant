@@ -18,7 +18,8 @@ from .endpoints import (
     refresh,
     summaries,
 )
-from .imap.imap_client import IMAPClient, TestIMAPClient
+from .imap import IMAPClient
+from .imap.TestIMAPClient import TestIMAPClient
 from .settings import Settings
 from .testing import TEST_ACCOUNT, load_test_messages
 

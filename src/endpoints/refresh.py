@@ -8,7 +8,7 @@ from loguru import logger
 
 from ..app_context import AppContext, Application
 from ..background_tasks.refresh import refresh_mailbox
-from ..imap.imap_client import list_mailboxes_of_account
+from ..imap import list_mailboxes_of_account
 from ..models import UpdateStatus
 
 router = APIRouter(tags=["Refresh"])
