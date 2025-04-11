@@ -10,3 +10,6 @@ ruff
 pre-commit-hooks
 ollama
 pytest-asyncio
+pytest-dotenv
+langchain-ollama
+langchain-google-genai

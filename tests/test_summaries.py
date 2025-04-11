@@ -3,8 +3,16 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from src.models import JOB_TYPE, STATUS, JobStatusSQL, MailMessage
-from src.testing import load_test_messages
+from src.models import (
+    JOB_TYPE,
+    STATUS,
+    ChatEntry,
+    EmailChat,
+    EmailChatSQL,
+    JobStatusSQL,
+    MailMessage,
+)
+from src.testing import TEST_ACCOUNT, load_test_messages
 from tests.utils import check_job_status, save_mails, temp_test_dir, test_app
 
 test_app
@@ -31,18 +39,31 @@ def test_queue_summary_job_via_generate_endpoint(test_app):
         email: MailMessage = messages_by_mailbox[mailbox][0]
         save_mails(test_app, messages_by_mailbox[mailbox])
 
+        # feed chat
+        test_app.context.dbs[TEST_ACCOUNT.name].add_value(
+            EmailChatSQL(
+                email_message_id=email.message_id,
+                authors=[email.sender],
+                chat_json=EmailChat(
+                    entries=[
+                        ChatEntry(
+                            author=email.sender,
+                            date_sent=email.date_sent,
+                            entry_content=email.content,
+                        )
+                    ],
+                    authors=[email.sender],
+                ).model_dump_json(),
+            )
+        )
+        time.sleep(0.2)
+        resp = client.get(f"/accounts/test/chats/{email.message_id}")
+        assert resp.status_code == 200
+
         resp = client.post(f"/accounts/test/summaries/generate/{email.message_id}")
         assert resp.status_code == 200
         job_status = JobStatusSQL.model_validate(resp.json())
         assert job_status.status == STATUS.pending
-
-        while not check_job_status(
-            test_app,
-            message_id=email.message_id,
-            status=str(STATUS.in_progress),
-            job_type=str(JOB_TYPE.summary),
-        ):
-            time.sleep(0.1)
 
         while check_job_status(
             test_app,
@@ -55,7 +76,7 @@ def test_queue_summary_job_via_generate_endpoint(test_app):
             status=str(STATUS.failed),
             job_type=str(JOB_TYPE.summary),
         ):
-            time.sleep(0.1)
+            time.sleep(1)
 
 
 @pytest.mark.ollama

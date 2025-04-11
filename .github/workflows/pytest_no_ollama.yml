@@ -9,6 +9,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      LLM_PROVIDER: gemini
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 
     steps:
       - uses: actions/checkout@v3
@@ -23,4 +26,4 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y sqlite3
 
-      - run: pytest -m "not ollama"
+      - run: pytest -s
