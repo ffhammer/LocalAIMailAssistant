@@ -6,7 +6,7 @@ from loguru import logger
 from result import Err, Result, is_err
 from sqlmodel import Session, select
 
-from src.db.mail_db import MailDB, MailMessage, MailMessageSQL, UpdateStatus
+from src.database.mail_db import MailDB, MailMessage, MailMessageSQL, UpdateStatus
 from src.imap.imap_client import IMAPClient, ImapClientInterface
 from src.models import MailFlag
 

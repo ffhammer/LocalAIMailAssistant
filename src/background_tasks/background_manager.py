@@ -6,7 +6,7 @@ from loguru import logger
 from result import Result, is_err
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from ..db import MailDB
+from ..database import MailDB
 from ..models import JOB_TYPE, STATUS, JobStatus, JobStatusSQL
 from .tasks import (
     generate_and_save_chat,

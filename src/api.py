@@ -8,7 +8,7 @@ from loguru import logger
 from .accounts.accounts_loading import load_accounts
 from .app_context import AppContext, Application
 from .background_tasks.background_manager import BackgroundTaskManager
-from .db import MailDB
+from .database import MailDB
 from .endpoints import (
     accounts,
     background_tasks,

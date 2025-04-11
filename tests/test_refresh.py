@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api import Application
-from src.db.mail_db import MailDB
+from src.database.mail_db import MailDB
 from src.testing import load_test_messages
 from tests.utils import temp_test_dir, test_app
 

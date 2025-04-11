@@ -5,7 +5,7 @@ from fastapi import FastAPI
 
 from src.accounts.accounts_loading import AccountSettings
 from src.background_tasks.background_manager import BackgroundTaskManager
-from src.db import MailDB
+from src.database import MailDB
 from src.settings import Settings
 
 

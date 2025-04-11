@@ -3,7 +3,7 @@ from typing import List, Optional
 from loguru import logger
 from result import Ok, Result, is_err
 
-from src.db.mail_db import (
+from src.database.mail_db import (
     EmailChatSQL,
     EmailSummarySQL,
     MailDB,
