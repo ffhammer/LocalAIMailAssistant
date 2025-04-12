@@ -4,8 +4,47 @@ from email.message import EmailMessage
 from pathlib import Path
 from typing import Optional
 
+from bs4 import BeautifulSoup
+from loguru import logger
 from pydantic import BaseModel, EmailStr
 from sqlmodel import Field, SQLModel
+
+
+def get_body(m: EmailMessage) -> Optional[str]:
+    texts: list[str] = []
+    htmls: list[str] = []
+    if m.is_multipart():
+        for part in m.walk():
+            if part.get_content_disposition() == "attachment":
+                continue
+            ctype = part.get_content_type()
+            payload = part.get_payload(decode=True)
+            if not payload:
+                continue
+            decoded = payload.decode(errors="replace")
+            if ctype == "text/plain":
+                texts.append(decoded)
+            elif ctype == "text/html":
+                htmls.append(decoded)
+    else:
+        ctype = m.get_content_type()
+        payload = m.get_payload(decode=True)
+        if payload:
+            decoded = payload.decode(errors="replace")
+            if ctype == "text/plain":
+                texts.append(decoded)
+            elif ctype == "text/html":
+                htmls.append(decoded)
+
+    if texts:
+        return "\n".join(texts).strip()
+    elif htmls:
+        cleaned = [
+            BeautifulSoup(html, "html.parser").get_text(separator="\n")
+            for html in htmls
+        ]
+        return "\n".join(cleaned).strip()
+    return None
 
 
 class MailMessage(BaseModel):
@@ -31,21 +70,21 @@ class MailMessage(BaseModel):
         return self.model_dump() == other.model_dump()
 
 
-def parse_processed_email(msg: EmailMessage, mailbox: str, uid: int) -> MailMessage:
+def parse_processed_email(
+    msg: EmailMessage, mailbox: str, uid: int
+) -> Optional[MailMessage]:
     def parse_date(d: Optional[str]) -> datetime:
         return datetime(*email.utils.parsedate_tz(d)[:6]) if d else datetime.min
 
-    def get_body(m: EmailMessage) -> str:
-        if m.is_multipart():
-            for part in m.walk():
-                if part.get_content_type() == "text/plain":
-                    return part.get_payload(decode=True).decode(errors="replace")
-        return m.get_payload(decode=True).decode(errors="replace")
+    body = get_body(msg)
+    if body is None:
+        logger.debug("could not extraxt body")
+        return None
 
     return MailMessage(
         id=uid,
         mailbox=mailbox,
-        content=get_body(msg),
+        content=body,
         date_received=parse_date(msg.get("Date")),
         date_sent=parse_date(msg.get("Date")),
         deleted_status="\\Deleted" in msg.get("Flags", ""),

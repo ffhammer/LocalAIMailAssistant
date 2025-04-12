@@ -38,13 +38,16 @@ async def refresh_mailbox(
 
         for uid in to_fetch:
             # Offload the blocking fetch operation.
-            mail = await asyncio.to_thread(client.fetch_email_by_uid, uid, mailbox)
-            if mail is None:
-                logger.error(f"Can't fetch mail with UID {uid}")
-                continue
-            logger.debug(f"Fetched mail UID {uid} from '{mailbox}'. Saving...")
-            # Save mail using a blocking call offloaded to a thread.
-            await asyncio.to_thread(db.save_email, mail)
+            try:
+                mail = await asyncio.to_thread(client.fetch_email_by_uid, uid, mailbox)
+                if mail is None:
+                    logger.error(f"Can't fetch mail with UID {uid}")
+                    continue
+                logger.debug(f"Fetched mail UID {uid} from '{mailbox}'. Saving...")
+                # Save mail using a blocking call offloaded to a thread.
+                await asyncio.to_thread(db.save_email, mail)
+            except Exception:
+                logger.exception(f"saving mail with {uid} failed for {mailbox}")
 
         # Publish a "new" event for the mailbox.
         event = Event(
@@ -64,7 +67,7 @@ async def refresh_mailbox(
                 message="Failed Mailbox refreshed",
             )
         )
-        logger.error(f"Failed to refresh mailbox '{mailbox}': {e}")
+        logger.exception(f"Failed to refresh mailbox '{mailbox}': {e}")
 
 
 async def update_flags_for_mailbox(
@@ -131,7 +134,12 @@ async def sync_account(db: MailDB) -> None:
       - For each mailbox, refresh messages.
       - Update flags.
     """
+
     # Get locally known mailboxes.
+    def sort_mailboxes(mailboxes: set[str]) -> List[str]:
+        priorities = {db.account.imap_inbox_folder: 0, db.account.imap_sent_folder: 1}
+        return sorted(mailboxes, key=lambda m: priorities.get(m, 2))
+
     last_mailboxes = {mail.mailbox for mail in db.query_table(MailMessageSQL)}
     with IMAPClient(account=db.account, settings=db.settings) as client:
         current_mailboxes = set(client.list_mailboxes())
@@ -141,15 +149,15 @@ async def sync_account(db: MailDB) -> None:
             delete_mailbox(db=db, client=client, mailbox=mailbox)
 
         # Process new mailboxes.
-        for mailbox in current_mailboxes.difference(last_mailboxes):
+        for mailbox in sort_mailboxes(current_mailboxes.difference(last_mailboxes)):
             logger.info(f"New mailbox detected: '{mailbox}'. Syncing...")
             await refresh_mailbox(db=db, client=client, mailbox=mailbox)
 
         # For unchanged mailboxes, update differences.
-        for mailbox in last_mailboxes.intersection(current_mailboxes):
+        for mailbox in sort_mailboxes(last_mailboxes.intersection(current_mailboxes)):
             logger.info(f"Refreshing unchanged mailbox '{mailbox}'.")
             await refresh_mailbox(db=db, client=client, mailbox=mailbox)
 
         # Update flags for all current mailboxes.
-        for mailbox in current_mailboxes:
+        for mailbox in sort_mailboxes(current_mailboxes):
             await update_flags_for_mailbox(db, client, mailbox)

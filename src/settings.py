@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     LOAD_TEST_DATA: bool = True
     llm_provider: Literal["ollama", "gemini"] = "ollama"
     imap_settings: ImapSettings = ImapSettings()
+    log_path: Optional[str] = None
 
 
 class LLMSettings(BaseSettings):

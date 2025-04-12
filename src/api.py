@@ -1,4 +1,5 @@
 import asyncio
+import sys
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -30,7 +31,10 @@ def create_app(settings: Optional[Settings] = None) -> Application:
         settings = Settings()
     settings: Settings
 
-    logger.level(settings.LOG_LEVEL)
+    logger.remove()
+    logger.add(sys.stdout, level=settings.LOG_LEVEL)
+    if settings.log_path is not None:
+        logger.add(settings.log_path, level=settings.LOG_LEVEL)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
