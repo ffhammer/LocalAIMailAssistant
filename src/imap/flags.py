@@ -3,7 +3,7 @@ from typing import Optional
 
 from loguru import logger
 
-from ..models import MailFlag
+from src.models import MailFlag
 
 FLAG_PATTERN = re.compile(r"(\d+)\s+\((?:UID\s+\d+\s+)?FLAGS\s+\((.*?)\)\)")
 

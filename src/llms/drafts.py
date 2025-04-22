@@ -5,8 +5,8 @@ from langchain_core.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama import OllamaLLM
 
-from ..models import EmailChat, EmailDraftSQL
-from ..settings import LLMSettings, Settings
+from src.models import EmailChat, EmailDraftSQL
+from src.settings import LLMSettings, Settings
 
 ollama_model = OllamaLLM(model=LLMSettings().draft_generator_model)
 llm_settings = LLMSettings()

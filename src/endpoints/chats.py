@@ -5,8 +5,8 @@ from fastapi.responses import JSONResponse
 from result import is_err, is_ok
 from sqlmodel import select
 
-from ..app_context import AppContext, Application
-from ..models import JOB_TYPE, EmailChat, EmailChatSQL, JobStatusSQL, MailMessage
+from src.app_context import AppContext, Application
+from src.models import JOB_TYPE, EmailChat, EmailChatSQL, JobStatusSQL, MailMessage
 
 router = APIRouter(tags=["Chats"])
 

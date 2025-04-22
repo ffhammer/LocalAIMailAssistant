@@ -2,7 +2,8 @@ from datetime import datetime
 
 from loguru import logger
 
-from ..accounts.accounts_loading import AccountSettings
+from src.accounts.accounts_loading import AccountSettings
+
 from .apple_mail_io import load_reply_window_for_message
 from .data_formats import ProccesedMailMessage
 

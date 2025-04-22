@@ -3,9 +3,9 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
-from ..app_context import AppContext, Application
-from ..imap_client_management.refresh import sync_account
-from ..models import UpdateStatus
+from src.app_context import AppContext, Application
+from src.imap_client_management.refresh import sync_account
+from src.models import UpdateStatus
 
 router = APIRouter(tags=["Refresh"])
 

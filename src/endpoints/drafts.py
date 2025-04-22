@@ -2,8 +2,8 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 
-from ..app_context import AppContext, Application
-from ..models import (
+from src.app_context import AppContext, Application
+from src.models import (
     JOB_TYPE,
     EmailDraftSQL,
     JobStatusSQL,

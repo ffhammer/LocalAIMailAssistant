@@ -6,6 +6,8 @@ from result import Err, Ok, Result
 from sqlalchemy.orm import joinedload
 from sqlmodel import Session, SQLModel, create_engine, select
 
+from src.accounts.accounts_loading import AccountSettings
+from src.llms.chats import generate_default_chat
 from src.models import (
     Attachment,
     EmailChat,
@@ -18,11 +20,8 @@ from src.models import (
     UpdateStatus,
     sql_email_chat_to_email_chat,
 )
-
-from ..accounts.accounts_loading import AccountSettings
-from ..llms.chats import generate_default_chat
-from ..settings import Settings
-from ..utils import LogLevel, return_error_and_log
+from src.settings import Settings
+from src.utils import LogLevel, return_error_and_log
 
 EmailDraftSQL  # for create all
 TABLE_TYPE = TypeVar("TABLE_TYPE", bound=SQLModel)

@@ -6,9 +6,10 @@ from loguru import logger
 from result import Result, is_err
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from ..database import MailDB
-from ..models import JOB_TYPE, STATUS, JobStatus, JobStatusSQL
-from ..settings import Settings
+from src.database import MailDB
+from src.models import JOB_TYPE, STATUS, JobStatus, JobStatusSQL
+from src.settings import Settings
+
 from .tasks import (
     generate_and_save_chat,
     generate_and_save_draft,

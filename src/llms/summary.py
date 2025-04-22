@@ -3,8 +3,8 @@ from langchain_core.prompts import PromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama import OllamaLLM
 
-from ..models import EmailChat
-from ..settings import LLMSettings, Settings
+from src.models import EmailChat
+from src.settings import LLMSettings, Settings
 
 llm_settings = LLMSettings()
 ollama_model = OllamaLLM(model=llm_settings.summary_model)

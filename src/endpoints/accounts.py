@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
-from ..app_context import AppContext, Application
-from ..imap import list_mailboxes_of_account
+from src.app_context import AppContext, Application
+from src.imap import list_mailboxes_of_account
 
 router = APIRouter()
 

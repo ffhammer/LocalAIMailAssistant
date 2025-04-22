@@ -3,8 +3,9 @@ from typing import Optional
 
 from loguru import logger
 
-from ..accounts.accounts_loading import AccountSettings
-from ..settings import Settings
+from src.accounts.accounts_loading import AccountSettings
+from src.settings import Settings
+
 from .ImapClientInterface import ImapClientInterface
 from .RealIMAPClient import RealIMAPClient
 from .TestIMAPClient import TestIMAPClient

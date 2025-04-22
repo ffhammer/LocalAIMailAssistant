@@ -4,8 +4,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama import OllamaLLM
 from loguru import logger
 
-from ..models import ChatEntry, EmailChat, MailMessage
-from ..settings import LLMSettings, Settings
+from src.models import ChatEntry, EmailChat, MailMessage
+from src.settings import LLMSettings, Settings
 
 llm_settings = LLMSettings()
 ollama_model = OllamaLLM(model=llm_settings.chat_extractor_moedel)

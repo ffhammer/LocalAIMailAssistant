@@ -4,8 +4,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from sqlmodel import select
 
-from ..app_context import AppContext, Application
-from ..models import (
+from src.app_context import AppContext, Application
+from src.models import (
     JOB_TYPE,
     EmailSummarySQL,
     JobStatusSQL,

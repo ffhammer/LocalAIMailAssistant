@@ -8,13 +8,12 @@ from src.database.mail_db import (
     EmailSummarySQL,
     MailDB,
 )
-
-from ..llms.chats import EmailChat, generate_email_chat_with_llm
-from ..llms.drafts import EmailDraftSQL, generate_draft_with_llm
-from ..llms.summary import generate_summary_with_llm
-from ..models.message import MailMessage
-from ..settings import Settings
-from ..utils import LogLevel, return_error_and_log
+from src.llms.chats import EmailChat, generate_email_chat_with_llm
+from src.llms.drafts import EmailDraftSQL, generate_draft_with_llm
+from src.llms.summary import generate_summary_with_llm
+from src.models.message import MailMessage
+from src.settings import Settings
+from src.utils import LogLevel, return_error_and_log
 
 
 def generate_and_save_chat(

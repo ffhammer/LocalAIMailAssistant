@@ -7,11 +7,11 @@ from typing import Optional
 
 from loguru import logger
 
+from src.accounts.accounts_loading import AccountSettings
 from src.imap.ImapClientInterface import ImapClientInterface
+from src.models.message import Attachment, MailMessage
+from src.settings import ImapSettings, Settings
 
-from ..accounts.accounts_loading import AccountSettings
-from ..models.message import Attachment, MailMessage
-from ..settings import ImapSettings, Settings
 from .flags import MailFlag, parse_all_flags, parse_flags_filtered
 from .parse_mails import parse_message
 
