@@ -13,3 +13,4 @@ pytest-asyncio
 pytest-dotenv
 langchain-ollama
 langchain-google-genai
+rapidfuzz==3.6.1

@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from src.app_context import Application
 from src.imap import list_mailboxes_of_account
 from src.imap_client_management.flag import toggle_flag
-from src.models import MailFlag, MailHeader, MailMessage
+from src.models import FuzzySearchResult, MailFlag, MailHeader, MailMessage
 
 router = APIRouter(tags=["Emails"])
 
@@ -161,3 +161,39 @@ def toggle_flag_endpoint(
     res = toggle_flag(db=db, email_message_id=message_id, flag=flag)
     if res.is_err():
         raise HTTPException(status_code=400, detail=res.unwrap_err())
+
+
+@router.get(
+    "/accounts/{account_id}/mailboxes/{mailbox}/emails/fuzzy",
+    response_model=list[FuzzySearchResult],
+)
+def fuzzy_search_emails(
+    account_id: str,
+    query: str = Query(..., min_length=1),
+    limit: int = Query(default=10, ge=1, le=100),
+    threshold: int = Query(default=60, ge=0, le=100),
+    force_update: bool = False,
+):
+    """
+    Perform fuzzy search on email subjects or senders.
+
+    Args:
+        account_id: The account identifier
+        query: The search query
+        limit: Maximum number of results to return
+        threshold: Minimum similarity score (0-100)
+        force_update: Whether to force a cache update
+    """
+    context = Application.get_current_context()
+    if account_id not in context.dbs:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    db = context.dbs[account_id]
+
+    # Get message IDs from fuzzy search
+    return db.fuzzy_search(
+        query=query,
+        limit=limit,
+        threshold=threshold,
+        force_update=force_update,
+    )

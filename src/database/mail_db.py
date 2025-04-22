@@ -1,7 +1,7 @@
 import time
 from functools import wraps
 from pathlib import Path
-from typing import Callable, List, Optional, ParamSpec, TypeVar
+from typing import Callable, List, Optional, ParamSpec, Tuple, TypeVar
 
 from loguru import logger
 from result import Err, Ok, Result
@@ -10,6 +10,7 @@ from sqlalchemy.orm import joinedload
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from src.accounts.accounts_loading import AccountSettings
+from src.database.FuzzySearchCache import FuzzySearchCache
 from src.llms.chats import generate_default_chat
 from src.models import (
     Attachment,
@@ -60,6 +61,44 @@ class MailDB:
         self.engine = create_engine(f"sqlite:///{self.db_path}", echo=False)
         SQLModel.metadata.create_all(self.engine)
 
+        # Initialize fuzzy search cache
+        self._fuzzy_cache = FuzzySearchCache()
+        self._update_fuzzy_cache()
+
+    @timed_db_call
+    def _update_fuzzy_cache(self) -> None:
+        """Update the fuzzy search cache with all messages."""
+        with Session(self.engine, expire_on_commit=False) as session:
+            messages = session.exec(select(MailMessage)).all()
+            self._fuzzy_cache.update(messages)
+
+    @timed_db_call
+    def fuzzy_search(
+        self,
+        query: str,
+        limit: int = 10,
+        threshold: int = 60,
+        force_update: bool = False,
+    ) -> List[Tuple[str, str, float, str]]:
+        """
+        Perform fuzzy search on email subjects and senders.
+
+        Args:
+            query: The search query
+            limit: Maximum number of results to return
+            threshold: Minimum similarity score (0-100)
+            force_update: Whether to force a cache update
+
+        Returns:
+            List of (message_id, score, match_type, subject, sender, mailbox) tuples
+        """
+        # Update cache if it's empty or force_update is True
+        if force_update or self._fuzzy_cache.last_update == 0:
+            self._update_fuzzy_cache()
+
+        # Get fuzzy search results
+        return self._fuzzy_cache.search(query, limit, threshold)
+
     @timed_db_call
     def query_first_item(
         self, table: TABLE_TYPE, *where_clauses
@@ -91,6 +130,9 @@ class MailDB:
                 attachment.email = mail
                 session.add(attachment)
             session.commit()
+
+        # Update fuzzy cache with the new message
+        self._fuzzy_cache.update([mail])
 
     @timed_db_call
     def query_table(self, table_model: SQLModel, *where_clauses) -> List[SQLModel]:

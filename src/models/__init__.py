@@ -1,5 +1,6 @@
 from .chat import ChatEntry, EmailChat, EmailChatSQL, sql_email_chat_to_email_chat
 from .draft import EmailDraftSQL
+from .fuzzy import FuzzySearchResult
 from .jobs import JOB_TYPE, STATUS, JobStatus, JobStatusSQL
 from .mail_flag import MailFlag
 from .message import Attachment, MailHeader, MailMessage
@@ -7,6 +8,7 @@ from .status import UpdateStatus
 from .summary import EmailSummarySQL
 
 __all__ = [
+    "FuzzySearchResult",
     "MailHeader",
     "MailFlag",
     "MailMessage",
