@@ -1,11 +1,18 @@
 import os
 
 import pytest
-from fastapi.testclient import TestClient
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
 
 from src.api import Application, create_app
 from src.models import JobStatus, MailMessage
 from src.settings import Settings
+
+
+def get_test_client(test_app) -> AsyncClient:
+    return AsyncClient(
+        transport=ASGITransport(app=test_app.app), base_url="http://test"
+    )
 
 
 @pytest.fixture(scope="function")
@@ -15,8 +22,8 @@ def temp_test_dir(tmp_path_factory) -> str:
     return str(d)
 
 
-@pytest.fixture(scope="function")
-def test_app(temp_test_dir: str) -> Application:
+@pytest_asyncio.fixture(scope="function")
+async def test_app(temp_test_dir: str) -> Application:
     test_settings = Settings(
         TEST_BACKEND="True",
         TEST_DB_PATH=temp_test_dir,
@@ -24,7 +31,11 @@ def test_app(temp_test_dir: str) -> Application:
         LOG_LEVEL="DEBUG",
     )
     app = create_app(settings=test_settings)
-    return app
+
+    # Start the background manager
+    async with app.app.router.lifespan_context(app.app):
+        yield app
+        app.context.background_task.cancel()
 
 
 def save_mails(test_app: Application, mails: list[MailMessage]):
@@ -33,13 +44,12 @@ def save_mails(test_app: Application, mails: list[MailMessage]):
         db.add_value(mail)
 
 
-def check_job_status(test_app: Application, **filters) -> list[JobStatus]:
+async def check_job_status(client: AsyncClient, **filters) -> list[JobStatus]:
     """
     Helper to query the background status endpoint with given filters.
     Returns the JSON response.
     """
-    client = TestClient(test_app.app)
     query = "&".join(f"{key}={value}" for key, value in filters.items())
-    resp = client.get(f"/background/status?{query}")
+    resp = await client.get(f"/background/status?{query}")
 
     return [JobStatus.model_validate(i) for i in resp.json()]

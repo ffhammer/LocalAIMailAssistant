@@ -1,3 +1,4 @@
+from asyncio import Task
 from dataclasses import dataclass
 from typing import Optional
 
@@ -15,6 +16,7 @@ class AppContext:
     dbs: dict[str, MailDB]
     background_manager: BackgroundTaskManager
     settings: Settings
+    background_task: Optional[Task] = None
 
 
 class Application:

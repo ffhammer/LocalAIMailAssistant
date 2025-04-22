@@ -39,7 +39,8 @@ def create_app(settings: Optional[Settings] = None) -> Application:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         context: AppContext = Application.get_current_context()
-        asyncio.create_task(context.background_manager.run())
+        background_task = asyncio.create_task(context.background_manager.run())
+        context.background_task = background_task
         yield
 
     app = FastAPI(lifespan=lifespan, title="Local Email Summarization API")
