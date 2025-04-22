@@ -40,8 +40,11 @@ def timed_db_call(fn: Callable[P, R]) -> Callable[P, R]:
         start = time.perf_counter()
         result = fn(*args, **kwargs)
         elapsed_ms = (time.perf_counter() - start) * 1000
+
+        args_rendered = [type(arg).__name__ for arg in args[1:]]
+        kwargs_rendered = {k: type(v).__name__ for k, v in kwargs.items()}
         logger.info(
-            f"{fn.__qualname__}(args={args[1:]!r}, kwargs={kwargs!r}) took {elapsed_ms:.2f}ms"
+            f"{fn.__qualname__}(args={args_rendered}, kwargs={kwargs_rendered}) took {elapsed_ms:.2f}ms"
         )
         return result
 
