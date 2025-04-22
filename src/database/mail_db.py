@@ -1,8 +1,11 @@
+import time
+from functools import wraps
 from pathlib import Path
-from typing import List, Optional, TypeVar
+from typing import Callable, List, Optional, ParamSpec, TypeVar
 
 from loguru import logger
 from result import Err, Ok, Result
+from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 from sqlmodel import Session, SQLModel, create_engine, select
 
@@ -24,7 +27,24 @@ from src.settings import Settings
 from src.utils import LogLevel, return_error_and_log
 
 EmailDraftSQL  # for create all
+
+P = ParamSpec("P")
+R = TypeVar("R")
 TABLE_TYPE = TypeVar("TABLE_TYPE", bound=SQLModel)
+
+
+def timed_db_call(fn: Callable[P, R]) -> Callable[P, R]:
+    @wraps(fn)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        start = time.perf_counter()
+        result = fn(*args, **kwargs)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.info(
+            f"{fn.__qualname__}(args={args[1:]!r}, kwargs={kwargs!r}) took {elapsed_ms:.2f}ms"
+        )
+        return result
+
+    return wrapper
 
 
 class MailDB:
@@ -40,6 +60,7 @@ class MailDB:
         self.engine = create_engine(f"sqlite:///{self.db_path}", echo=False)
         SQLModel.metadata.create_all(self.engine)
 
+    @timed_db_call
     def query_first_item(
         self, table: TABLE_TYPE, *where_clauses
     ) -> Optional[TABLE_TYPE]:
@@ -50,16 +71,19 @@ class MailDB:
 
             return session.exec(statement=statement).first()
 
+    @timed_db_call
     def add_values(self, values: list[TABLE_TYPE]) -> None:
         with Session(self.engine, expire_on_commit=False) as session:
             session.add_all(values)
             session.commit()
 
+    @timed_db_call
     def add_value(self, value: TABLE_TYPE) -> None:
         with Session(self.engine, expire_on_commit=False) as session:
             session.add(value)
             session.commit()
 
+    @timed_db_call
     def save_mail(self, mail: MailMessage, attachments: list[Attachment] = []):
         with Session(self.engine, expire_on_commit=False) as session:
             session.add(mail)
@@ -68,6 +92,7 @@ class MailDB:
                 session.add(attachment)
             session.commit()
 
+    @timed_db_call
     def query_table(self, table_model: SQLModel, *where_clauses) -> List[SQLModel]:
         with Session(self.engine, expire_on_commit=False) as session:
             statement = select(table_model)
@@ -92,6 +117,7 @@ class MailDB:
         except Exception as exc:
             logger.exception(f"Failed to save the status: {exc}")
 
+    @timed_db_call
     def get_email_by_message_id(self, email_id: str) -> Optional[MailMessage]:
         with Session(self.engine, expire_on_commit=False) as session:
             statement = (
@@ -102,7 +128,15 @@ class MailDB:
 
             return session.exec(statement=statement).first()
 
-    def query_email_headers(self, *where_clauses) -> List[MailHeader]:
+    @timed_db_call
+    def query_email_headers(
+        self,
+        *where_clauses,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        order_by: Optional[str] = None,
+        order_desc: bool = True,
+    ) -> List[MailHeader]:
         with Session(self.engine, expire_on_commit=False) as session:
             stmt = select(
                 MailMessage.message_id,
@@ -121,8 +155,54 @@ class MailDB:
             )
             for clause in where_clauses:
                 stmt = stmt.where(clause)
+
+            # Add ordering
+            if order_by:
+                if order_by == "date_sent":
+                    stmt = stmt.order_by(
+                        MailMessage.date_sent.desc()
+                        if order_desc
+                        else MailMessage.date_sent.asc()
+                    )
+                elif order_by == "date_received":
+                    stmt = stmt.order_by(
+                        MailMessage.date_received.desc()
+                        if order_desc
+                        else MailMessage.date_received.asc()
+                    )
+                elif order_by == "subject":
+                    stmt = stmt.order_by(
+                        MailMessage.subject.desc()
+                        if order_desc
+                        else MailMessage.subject.asc()
+                    )
+                elif order_by == "sender":
+                    stmt = stmt.order_by(
+                        MailMessage.sender.desc()
+                        if order_desc
+                        else MailMessage.sender.asc()
+                    )
+            else:
+                # Default ordering by date_sent descending
+                stmt = stmt.order_by(MailMessage.date_sent.desc())
+
+            # Add pagination
+            if limit is not None:
+                stmt = stmt.limit(limit)
+            if offset is not None:
+                stmt = stmt.offset(offset)
+
             rows = session.exec(stmt).mappings().all()
         return [MailHeader.model_validate(row) for row in rows]
+
+    @timed_db_call
+    def count_email_headers(self, *where_clauses) -> int:
+        """Count the total number of emails matching the given criteria using SQL COUNT."""
+        with Session(self.engine, expire_on_commit=False) as session:
+            stmt = select(func.count()).select_from(MailMessage)
+            for clause in where_clauses:
+                stmt = stmt.where(clause)
+            return session.exec(stmt).one()
 
     def query_email_ids(self, *where_clauses) -> List[str]:
         return list(self.query_table(MailMessage.message_id, *where_clauses))
@@ -134,6 +214,7 @@ class MailDB:
 
         return None if summary is None else summary.summary_text
 
+    @timed_db_call
     def get_mail_chat(self, email_id: str) -> Result[EmailChat, str]:
         mail: Optional[MailMessage] = self.get_email_by_message_id(email_id)
         if mail is None:
@@ -155,6 +236,7 @@ class MailDB:
 
         return Ok(sql_email_chat_to_email_chat(chat))
 
+    @timed_db_call
     def delete_records(self, table_model: SQLModel, *where_clauses) -> None:
         with Session(self.engine, expire_on_commit=False) as session:
             stmt = select(table_model)
@@ -165,6 +247,7 @@ class MailDB:
                 session.delete(record)
             session.commit()
 
+    @timed_db_call
     def update_flags(self, data: dict[str, tuple[MailFlag]], mailbox) -> None:
         for uid, flags in data.items():
             mails: list[MailMessage] = self.query_table(
@@ -191,6 +274,7 @@ class MailDB:
                     session.add(mail)
                 session.commit()
 
+    @timed_db_call
     def toggle_flag(
         self, email_message_id: str, flag: MailFlag
     ) -> Result[MailMessage, str]:
