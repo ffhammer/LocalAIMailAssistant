@@ -71,6 +71,10 @@ def _parse_flags(flag_hdr: str) -> Set[MailFlag]:
 def _safe_date(hdr: Optional[str]) -> datetime:
     try:
         tpl = email.utils.parsedate_tz(hdr)
+        if tpl and tpl[9] is not None:  # Check if timezone offset is present
+            return datetime(
+                *tpl[:6], tzinfo=datetime.timezone(datetime.timedelta(seconds=tpl[9]))
+            )
         return datetime(*tpl[:6]) if tpl else datetime.min
     except Exception:
         return datetime.min
