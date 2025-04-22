@@ -5,7 +5,8 @@ from fastapi import APIRouter, HTTPException
 
 from src.app_context import Application
 from src.imap import list_mailboxes_of_account
-from src.models import MailHeader, MailMessage
+from src.imap_client_management.flag import toggle_flag
+from src.models import MailFlag, MailHeader, MailMessage
 
 router = APIRouter(tags=["Emails"])
 
@@ -63,3 +64,25 @@ def get_email_details(
     if email is None:
         raise HTTPException(status_code=404, detail="Email not found")
     return email
+
+
+@router.put(
+    "/accounts/{account_id}/emails/{message_id}/flag",
+)
+def toggle_flag_endpoint(
+    account_id: str,
+    message_id: str,
+    flag: MailFlag,
+):
+    """
+    Retrieves full details of a single email by its message_id.
+    Here, we assume a single account (the first one) for simplicity.
+    """
+    context = Application.get_current_context()
+    if account_id not in context.dbs:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    db = context.dbs[account_id]
+    res = toggle_flag(db=db, email_message_id=message_id, flag=flag)
+    if res.is_err():
+        raise HTTPException(status_code=400, detail=res.unwrap_err())

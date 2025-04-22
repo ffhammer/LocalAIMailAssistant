@@ -7,6 +7,7 @@
 # Sync
 
 - write tests
+- fetch hihest uid
 - try it out on real mailbox
 
 # Background Manager
@@ -16,8 +17,7 @@
 
 # Flags
 
-- write an endpoint to update flags
-- update the get mail from imap such mails are initialiazed with correct flags
+- toggle flags could overwrite other changes at the moment from other clients should fetch first.
 - write tests
 
 # Mailboxes
@@ -34,3 +34,7 @@
 
 - introduce new data model
 - endpoint to update/add/remove tags
+
+## Tests
+
+make llm part testing better. check if jobs suceed and not just fail
