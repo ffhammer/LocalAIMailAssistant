@@ -5,14 +5,14 @@ from fastapi import APIRouter, HTTPException
 
 from ..app_context import Application
 from ..imap import list_mailboxes_of_account
-from ..models import MailMessage, MailMessageSQL
+from ..models import MailHeader, MailMessage
 
 router = APIRouter(tags=["Emails"])
 
 
 @router.get(
     "/accounts/{account_id}/mailboxes/{mailbox}/emails",
-    response_model=List[MailMessage],
+    response_model=List[MailHeader],
 )
 def list_emails(
     account_id: str,
@@ -36,13 +36,13 @@ def list_emails(
 
     db = context.dbs[account_id]
 
-    args = [MailMessageSQL.mailbox == mailbox]
+    args = [MailMessage.mailbox == mailbox]
     if from_date is not None:
-        args.append(MailMessageSQL.date_sent > from_date)
+        args.append(MailMessage.date_sent > from_date)
     if to_date is not None:
-        args.append(MailMessageSQL.date_sent < to_date)
+        args.append(MailMessage.date_sent < to_date)
 
-    return db.query_emails(*args)
+    return db.query_email_headers(*args)
 
 
 @router.get("/accounts/{account_id}/emails/{message_id}", response_model=MailMessage)

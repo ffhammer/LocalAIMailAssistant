@@ -4,7 +4,7 @@ from typing import Optional
 
 from src.accounts.accounts_loading import AccountSettings
 from src.imap.flags import MailFlag
-from src.models.message import MailMessage
+from src.models.message import Attachment, MailMessage
 from src.settings import Settings
 
 
@@ -39,7 +39,7 @@ class ImapClientInterface(ABC):
     @abstractmethod
     def fetch_email_by_uid(
         self, uid: int, mailbox: str = "INBOX"
-    ) -> Optional[MailMessage]:
+    ) -> Optional[tuple[MailMessage, list[Attachment]]]:
         pass
 
     @abstractmethod

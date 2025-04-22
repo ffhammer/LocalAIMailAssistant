@@ -29,7 +29,7 @@ def generate_and_save_chat(
 
     try:
         logger.debug(
-            f"Generating chat for email\n{'-' * 100}\n{mail.content}\n{'-' * 100}"
+            f"Generating chat for email\n{'-' * 100}\n{mail.plain_text}\n{'-' * 100}"
         )
         chat: EmailChat = generate_email_chat_with_llm(mail, settings=settings)
         logger.debug(f"Chat generated:\n{chat.model_dump_json(indent=2)}")

@@ -6,7 +6,7 @@ from result import is_err, is_ok
 from sqlmodel import select
 
 from ..app_context import AppContext, Application
-from ..models import JOB_TYPE, EmailChat, EmailChatSQL, JobStatusSQL, MailMessageSQL
+from ..models import JOB_TYPE, EmailChat, EmailChatSQL, JobStatusSQL, MailMessage
 
 router = APIRouter(tags=["Chats"])
 
@@ -55,8 +55,8 @@ def generate_email_chats(account_id: str):
         raise HTTPException(status_code=404, detail="Account not found")
 
     missing_ids: List[str] = context.dbs[account_id].query_email_ids(
-        MailMessageSQL.reply_to.is_not(None),
-        ~MailMessageSQL.message_id.in_(select(EmailChatSQL.email_message_id)),
+        MailMessage.reply_to.is_not(None),
+        ~MailMessage.message_id.in_(select(EmailChatSQL.email_message_id)),
     )
 
     for msg_id in missing_ids:

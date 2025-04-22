@@ -1,8 +1,8 @@
 [
     {
-      "id": 1,
+      "uid": 1,
       "mailbox": "INBOX",
-      "content": "Hi Alice,\n\nJust wanted to follow up on our meeting yesterday. The proposal looks great, and we're excited to move forward. Let me know if you have any questions.\n\nBest,\nBob",
+      "plain_text": "Hi Alice,\n\nJust wanted to follow up on our meeting yesterday. The proposal looks great, and we're excited to move forward. Let me know if you have any questions.\n\nBest,\nBob",
       "date_received": "2025-03-20T10:00:00",
       "date_sent": "2025-03-20T09:55:00",
       "deleted_status": false,
@@ -17,9 +17,9 @@
       "flagged": false
     },
     {
-      "id": 2,
+      "uid": 2,
       "mailbox": "INBOX",
-      "content": "Hi Bob,\n\nThanks for the follow-up! Glad to hear you liked the proposal. Just a quick question regarding the timeline \u2013 could we potentially push the start date by a week?\n\nBest,\nAlice\n\nOn 2025-03-20 (bob@example.com) sent:\nHi Alice,\n\nJust wanted to follow up on our meeting yesterday. The proposal looks great, and we're excited to move forward. Let me know if you have any questions.\n\nBest,\nBob",
+      "plain_text": "Hi Bob,\n\nThanks for the follow-up! Glad to hear you liked the proposal. Just a quick question regarding the timeline \u2013 could we potentially push the start date by a week?\n\nBest,\nAlice\n\nOn 2025-03-20 (bob@example.com) sent:\nHi Alice,\n\nJust wanted to follow up on our meeting yesterday. The proposal looks great, and we're excited to move forward. Let me know if you have any questions.\n\nBest,\nBob",
       "date_received": "2025-03-20T10:15:00",
       "date_sent": "2025-03-20T10:10:00",
       "deleted_status": false,
@@ -34,9 +34,9 @@
       "flagged": false
     },
     {
-      "id": 3,
+      "uid": 3,
       "mailbox": "sent",
-      "content": "Hi Alice,\n\nNo problem at all regarding the timeline. Pushing the start date by a week works for us. Let me know if anything else comes up.\n\nBest,\nBob\n\nOn 2025-03-20 (alice@example.com) sent:\nHi Bob,\n\nThanks for the follow-up! Glad to hear you liked the proposal. Just a quick question regarding the timeline \u2013 could we potentially push the start date by a week?\n\nBest,\nAlice\n\nOn 2025-03-20 (bob@example.com) sent:\nHi Alice,\n\nJust wanted to follow up on our meeting yesterday. The proposal looks great, and we're excited to move forward. Let me know if you have any questions.\n\nBest,\nBob",
+      "plain_text": "Hi Alice,\n\nNo problem at all regarding the timeline. Pushing the start date by a week works for us. Let me know if anything else comes up.\n\nBest,\nBob\n\nOn 2025-03-20 (alice@example.com) sent:\nHi Bob,\n\nThanks for the follow-up! Glad to hear you liked the proposal. Just a quick question regarding the timeline \u2013 could we potentially push the start date by a week?\n\nBest,\nAlice\n\nOn 2025-03-20 (bob@example.com) sent:\nHi Alice,\n\nJust wanted to follow up on our meeting yesterday. The proposal looks great, and we're excited to move forward. Let me know if you have any questions.\n\nBest,\nBob",
       "date_received": "2025-03-20T10:30:00",
       "date_sent": "2025-03-20T10:25:00",
       "deleted_status": false,
@@ -51,9 +51,9 @@
       "flagged": false
     },
     {
-      "id": 4,
+      "uid": 4,
       "mailbox": "INBOX",
-      "content": "Dear Valued Customer,\n\nYour account ending in XXXX has been flagged for unusual activity. Please click the link below to verify your information immediately to avoid suspension.\n\n[MALICIOUS LINK]\n\nSincerely,\nYour Bank",
+      "plain_text": "Dear Valued Customer,\n\nYour account ending in XXXX has been flagged for unusual activity. Please click the link below to verify your information immediately to avoid suspension.\n\n[MALICIOUS LINK]\n\nSincerely,\nYour Bank",
       "date_received": "2025-03-21T08:00:00",
       "date_sent": "2025-03-21T07:55:00",
       "deleted_status": false,
@@ -68,9 +68,9 @@
       "flagged": true
     },
     {
-      "id": 5,
+      "uid": 5,
       "mailbox": "INBOX",
-      "content": "Your monthly bank statement is now available for download. Please log in to your online banking portal to access it.\n\nThank you for banking with us.\n\nSincerely,\nXYZ Bank",
+      "plain_text": "Your monthly bank statement is now available for download. Please log in to your online banking portal to access it.\n\nThank you for banking with us.\n\nSincerely,\nXYZ Bank",
       "date_received": "2025-03-22T09:00:00",
       "date_sent": "2025-03-22T08:55:00",
       "deleted_status": false,
@@ -85,9 +85,9 @@
       "flagged": false
     },
     {
-      "id": 6,
+      "uid": 6,
       "mailbox": "INBOX",
-      "content": "Hey Charlie,\n\nDid you get a chance to look at the document I sent over yesterday?\n\nThanks,\nDavid",
+      "plain_text": "Hey Charlie,\n\nDid you get a chance to look at the document I sent over yesterday?\n\nThanks,\nDavid",
       "date_received": "2025-03-23T14:00:00",
       "date_sent": "2025-03-23T13:55:00",
       "deleted_status": false,
@@ -102,9 +102,9 @@
       "flagged": false
     },
     {
-      "id": 7,
+      "uid": 7,
       "mailbox": "sent",
-      "content": "Hi David,\n\nYes, I did. Looks good! I have a couple of minor suggestions, can we chat briefly tomorrow?\n\nBest,\nCharlie\n\nOn 2025-03-23 (david@example.com) sent:\nHey Charlie,\n\nDid you get a chance to look at the document I sent over yesterday?\n\nThanks,\nDavid",
+      "plain_text": "Hi David,\n\nYes, I did. Looks good! I have a couple of minor suggestions, can we chat briefly tomorrow?\n\nBest,\nCharlie\n\nOn 2025-03-23 (david@example.com) sent:\nHey Charlie,\n\nDid you get a chance to look at the document I sent over yesterday?\n\nThanks,\nDavid",
       "date_received": "2025-03-23T14:15:00",
       "date_sent": "2025-03-23T14:10:00",
       "deleted_status": false,
@@ -119,9 +119,9 @@
       "flagged": false
     },
     {
-      "id": 8,
+      "uid": 8,
       "mailbox": "INBOX",
-      "content": "Congratulations!\nYou have won a free vacation! Click here to claim your prize now!\n\n[ANOTHER MALICIOUS LINK]",
+      "plain_text": "Congratulations!\nYou have won a free vacation! Click here to claim your prize now!\n\n[ANOTHER MALICIOUS LINK]",
       "date_received": "2025-03-24T11:00:00",
       "date_sent": "2025-03-24T10:55:00",
       "deleted_status": false,
@@ -136,9 +136,9 @@
       "flagged": true
     },
     {
-      "id": 9,
+      "uid": 9,
       "mailbox": "INBOX",
-      "content": "Subject: Project Update\n\nHi team,\n\nHere's a quick update on the project progress...\n\nBest,\nEve",
+      "plain_text": "Subject: Project Update\n\nHi team,\n\nHere's a quick update on the project progress...\n\nBest,\nEve",
       "date_received": "2025-03-25T16:00:00",
       "date_sent": "2025-03-25T15:55:00",
       "deleted_status": false,
@@ -153,9 +153,9 @@
       "flagged": false
     },
     {
-      "id": 10,
+      "uid": 10,
       "mailbox": "INBOX",
-      "content": "Subject: Re: Project Update\n\nThanks for the update, Eve. Just wondering about the status of task X?\n\nRegards,\nFrank\n\nOn 2025-03-25 (eve@company.com) sent:\nSubject: Project Update\n\nHi team,\n\nHere's a quick update on the project progress...\n\nBest,\nEve",
+      "plain_text": "Subject: Re: Project Update\n\nThanks for the update, Eve. Just wondering about the status of task X?\n\nRegards,\nFrank\n\nOn 2025-03-25 (eve@company.com) sent:\nSubject: Project Update\n\nHi team,\n\nHere's a quick update on the project progress...\n\nBest,\nEve",
       "date_received": "2025-03-25T16:15:00",
       "date_sent": "2025-03-25T16:10:00",
       "deleted_status": false,
@@ -170,9 +170,9 @@
       "flagged": false
     },
     {
-      "id": 11,
+      "uid": 11,
       "mailbox": "sent",
-      "content": "Subject: Re: Project Update\n\nHi Frank,\n\nRegarding task X, we are on track and expect to complete it by the end of the week.\n\nBest,\nEve\n\nOn 2025-03-25 (frank@company.com) sent:\nSubject: Re: Project Update\n\nThanks for the update, Eve. Just wondering about the status of task X?\n\nRegards,\nFrank\n\nOn 2025-03-25 (eve@company.com) sent:\nSubject: Project Update\n\nHi team,\n\nHere's a quick update on the project progress...\n\nBest,\nEve",
+      "plain_text": "Subject: Re: Project Update\n\nHi Frank,\n\nRegarding task X, we are on track and expect to complete it by the end of the week.\n\nBest,\nEve\n\nOn 2025-03-25 (frank@company.com) sent:\nSubject: Re: Project Update\n\nThanks for the update, Eve. Just wondering about the status of task X?\n\nRegards,\nFrank\n\nOn 2025-03-25 (eve@company.com) sent:\nSubject: Project Update\n\nHi team,\n\nHere's a quick update on the project progress...\n\nBest,\nEve",
       "date_received": "2025-03-25T16:30:00",
       "date_sent": "2025-03-25T16:25:00",
       "deleted_status": false,
@@ -187,9 +187,9 @@
       "flagged": false
     },
     {
-      "id": 12,
+      "uid": 12,
       "mailbox": "INBOX",
-      "content": "Subject: Reminder: Upcoming Payment Due\n\nDear Customer,\n\nThis is a reminder that your payment of $XX.XX is due on-MM-DD.\n\nSincerely,\nService Provider",
+      "plain_text": "Subject: Reminder: Upcoming Payment Due\n\nDear Customer,\n\nThis is a reminder that your payment of $XX.XX is due on-MM-DD.\n\nSincerely,\nService Provider",
       "date_received": "2025-03-26T10:00:00",
       "date_sent": "2025-03-26T09:55:00",
       "deleted_status": false,
@@ -204,9 +204,9 @@
       "flagged": true
     },
     {
-      "id": 13,
+      "uid": 13,
       "mailbox": "sent",
-      "content": "Subject: Meeting Request - Project Alpha\n\nHi George,\n\nCould we schedule a brief meeting to discuss the next steps for Project Alpha? Please let me know your availability.\n\nThanks,\nHanna",
+      "plain_text": "Subject: Meeting Request - Project Alpha\n\nHi George,\n\nCould we schedule a brief meeting to discuss the next steps for Project Alpha? Please let me know your availability.\n\nThanks,\nHanna",
       "date_received": "2025-03-27T09:00:00",
       "date_sent": "2025-03-27T08:55:00",
       "deleted_status": false,
@@ -221,9 +221,9 @@
       "flagged": false
     },
     {
-      "id": 14,
+      "uid": 14,
       "mailbox": "INBOX",
-      "content": "Subject: Re: Meeting Request - Project Alpha\n\nHi Hanna,\n\nSure, how about tomorrow afternoon at 2 PM?\n\nBest,\nGeorge\n\nOn 2025-03-27 (hanna@work.com) sent:\nSubject: Meeting Request - Project Alpha\n\nHi George,\n\nCould we schedule a brief meeting to discuss the next steps for Project Alpha? Please let me know your availability.\n\nThanks,\nHanna",
+      "plain_text": "Subject: Re: Meeting Request - Project Alpha\n\nHi Hanna,\n\nSure, how about tomorrow afternoon at 2 PM?\n\nBest,\nGeorge\n\nOn 2025-03-27 (hanna@work.com) sent:\nSubject: Meeting Request - Project Alpha\n\nHi George,\n\nCould we schedule a brief meeting to discuss the next steps for Project Alpha? Please let me know your availability.\n\nThanks,\nHanna",
       "date_received": "2025-03-27T09:15:00",
       "date_sent": "2025-03-27T09:10:00",
       "deleted_status": false,
@@ -238,9 +238,9 @@
       "flagged": false
     },
     {
-      "id": 15,
+      "uid": 15,
       "mailbox": "sent",
-      "content": "Subject: Re: Meeting Request - Project Alpha\n\nThat works perfectly, George. See you then.\n\nThanks,\nHanna\n\nOn 2025-03-27 (george@work.com) sent:\nSubject: Re: Meeting Request - Project Alpha\n\nHi Hanna,\n\nSure, how about tomorrow afternoon at 2 PM?\n\nBest,\nGeorge\n\nOn 2025-03-27 (hanna@work.com) sent:\nSubject: Meeting Request - Project Alpha\n\nHi George,\n\nCould we schedule a brief meeting to discuss the next steps for Project Alpha? Please let me know your availability.\n\nThanks,\nHanna",
+      "plain_text": "Subject: Re: Meeting Request - Project Alpha\n\nThat works perfectly, George. See you then.\n\nThanks,\nHanna\n\nOn 2025-03-27 (george@work.com) sent:\nSubject: Re: Meeting Request - Project Alpha\n\nHi Hanna,\n\nSure, how about tomorrow afternoon at 2 PM?\n\nBest,\nGeorge\n\nOn 2025-03-27 (hanna@work.com) sent:\nSubject: Meeting Request - Project Alpha\n\nHi George,\n\nCould we schedule a brief meeting to discuss the next steps for Project Alpha? Please let me know your availability.\n\nThanks,\nHanna",
       "date_received": "2025-03-27T09:30:00",
       "date_sent": "2025-03-27T09:25:00",
       "deleted_status": false,
@@ -255,9 +255,9 @@
       "flagged": false
     },
     {
-      "id": 16,
+      "uid": 16,
       "mailbox": "INBOX",
-      "content": "Subject: Team Lunch Next Week\n\nHi everyone,\n\nLet's plan a team lunch next week. Please reply to this email with your preferred day and time.\n\nThanks,\nIvy",
+      "plain_text": "Subject: Team Lunch Next Week\n\nHi everyone,\n\nLet's plan a team lunch next week. Please reply to this email with your preferred day and time.\n\nThanks,\nIvy",
       "date_received": "2025-03-31T11:00:00",
       "date_sent": "2025-03-31T10:55:00",
       "deleted_status": false,
@@ -272,9 +272,9 @@
       "flagged": false
     },
     {
-      "id": 17,
+      "uid": 17,
       "mailbox": "INBOX",
-      "content": "Subject: Re: Team Lunch Next Week\n\nTuesday or Wednesday afternoon works best for me.\n\nBest,\nJack\n\nOn 2025-03-31 (ivy@team.com) sent:\nSubject: Team Lunch Next Week\n\nHi everyone,\n\nLet's plan a team lunch next week. Please reply to this email with your preferred day and time.\n\nThanks,\nIvy",
+      "plain_text": "Subject: Re: Team Lunch Next Week\n\nTuesday or Wednesday afternoon works best for me.\n\nBest,\nJack\n\nOn 2025-03-31 (ivy@team.com) sent:\nSubject: Team Lunch Next Week\n\nHi everyone,\n\nLet's plan a team lunch next week. Please reply to this email with your preferred day and time.\n\nThanks,\nIvy",
       "date_received": "2025-03-31T11:10:00",
       "date_sent": "2025-03-31T11:05:00",
       "deleted_status": false,
@@ -289,9 +289,9 @@
       "flagged": false
     },
     {
-      "id": 18,
+      "uid": 18,
       "mailbox": "INBOX",
-      "content": "Subject: Re: Team Lunch Next Week\n\nI'm good with Wednesday afternoon too.\n\nCheers,\nKelly\n\nOn 2025-03-31 (ivy@team.com) sent:\nSubject: Team Lunch Next Week\n\nHi everyone,\n\nLet's plan a team lunch next week. Please reply to this email with your preferred day and time.\n\nThanks,\nIvy",
+      "plain_text": "Subject: Re: Team Lunch Next Week\n\nI'm good with Wednesday afternoon too.\n\nCheers,\nKelly\n\nOn 2025-03-31 (ivy@team.com) sent:\nSubject: Team Lunch Next Week\n\nHi everyone,\n\nLet's plan a team lunch next week. Please reply to this email with your preferred day and time.\n\nThanks,\nIvy",
       "date_received": "2025-03-31T11:15:00",
       "date_sent": "2025-03-31T11:12:00",
       "deleted_status": false,
@@ -306,9 +306,9 @@
       "flagged": false
     },
     {
-      "id": 19,
+      "uid": 19,
       "mailbox": "sent",
-      "content": "Subject: Re: Team Lunch Next Week\n\nGreat, let's aim for Wednesday at 1 PM then. I'll book a table.\n\nThanks,\nIvy\n\nOn 2025-03-31 (kelly@team.com) sent:\nSubject: Re: Team Lunch Next Week\n\nI'm good with Wednesday afternoon too.\n\nCheers,\nKelly\n\nOn 2025-03-31 (jack@team.com) sent:\nSubject: Re: Team Lunch Next Week\n\nTuesday or Wednesday afternoon works best for me.\n\nBest,\nJack\n\nOn 2025-03-31 (ivy@team.com) sent:\nSubject: Team Lunch Next Week\n\nHi everyone,\n\nLet's plan a team lunch next week. Please reply to this email with your preferred day and time.\n\nThanks,\nIvy",
+      "plain_text": "Subject: Re: Team Lunch Next Week\n\nGreat, let's aim for Wednesday at 1 PM then. I'll book a table.\n\nThanks,\nIvy\n\nOn 2025-03-31 (kelly@team.com) sent:\nSubject: Re: Team Lunch Next Week\n\nI'm good with Wednesday afternoon too.\n\nCheers,\nKelly\n\nOn 2025-03-31 (jack@team.com) sent:\nSubject: Re: Team Lunch Next Week\n\nTuesday or Wednesday afternoon works best for me.\n\nBest,\nJack\n\nOn 2025-03-31 (ivy@team.com) sent:\nSubject: Team Lunch Next Week\n\nHi everyone,\n\nLet's plan a team lunch next week. Please reply to this email with your preferred day and time.\n\nThanks,\nIvy",
       "date_received": "2025-03-31T11:30:00",
       "date_sent": "2025-03-31T11:25:00",
       "deleted_status": false,
@@ -323,9 +323,9 @@
       "flagged": false
     },
     {
-      "id": 20,
+      "uid": 20,
       "mailbox": "INBOX",
-      "content": "Subject: \ud83c\udf89 Exclusive Offer Just For You!\n\nUnlock incredible savings on our premium products. Limited time offer \u2013 don't miss out!\n\n[PROMOTIONAL IMAGE AND LINK]",
+      "plain_text": "Subject: \ud83c\udf89 Exclusive Offer Just For You!\n\nUnlock incredible savings on our premium products. Limited time offer \u2013 don't miss out!\n\n[PROMOTIONAL IMAGE AND LINK]",
       "date_received": "2025-04-01T09:30:00",
       "date_sent": "2025-04-01T09:25:00",
       "deleted_status": false,
@@ -340,9 +340,9 @@
       "flagged": true
     },
     {
-      "id": 21,
+      "uid": 21,
       "mailbox": "INBOX",
-      "content": "Subject: Account Login Alert\n\nDear User,\n\nWe detected a login attempt from a new device. If this was you, no action is required. If not, please secure your account immediately.\n\n[LINK TO SECURE ACCOUNT]",
+      "plain_text": "Subject: Account Login Alert\n\nDear User,\n\nWe detected a login attempt from a new device. If this was you, no action is required. If not, please secure your account immediately.\n\n[LINK TO SECURE ACCOUNT]",
       "date_received": "2025-04-02T14:45:00",
       "date_sent": "2025-04-02T14:40:00",
       "deleted_status": false,
@@ -357,9 +357,9 @@
       "flagged": false
     },
     {
-      "id": 22,
+      "uid": 22,
       "mailbox": "sent",
-      "content": "Hey Liam,\n\nHow are things going? Just wanted to see if you're free to catch up next week.\n\nTalk soon,\nMia",
+      "plain_text": "Hey Liam,\n\nHow are things going? Just wanted to see if you're free to catch up next week.\n\nTalk soon,\nMia",
       "date_received": "2025-04-03T17:00:00",
       "date_sent": "2025-04-03T16:55:00",
       "deleted_status": false,
@@ -374,9 +374,9 @@
       "flagged": false
     },
     {
-      "id": 23,
+      "uid": 23,
       "mailbox": "INBOX",
-      "content": "Subject: Re: Quick question about the document\n\nHi Charlie,\n\nYes, tomorrow sounds good. How about 10 AM?\n\nThanks,\nDavid\n\nOn 2025-03-23 (david@example.com) sent:\nHey Charlie,\n\nDid you get a chance to look at the document I sent over yesterday?\n\nThanks,\nDavid",
+      "plain_text": "Subject: Re: Quick question about the document\n\nHi Charlie,\n\nYes, tomorrow sounds good. How about 10 AM?\n\nThanks,\nDavid\n\nOn 2025-03-23 (david@example.com) sent:\nHey Charlie,\n\nDid you get a chance to look at the document I sent over yesterday?\n\nThanks,\nDavid",
       "date_received": "2025-04-04T08:30:00",
       "date_sent": "2025-04-04T08:25:00",
       "deleted_status": false,
@@ -391,9 +391,9 @@
       "flagged": false
     },
     {
-      "id": 24,
+      "uid": 24,
       "mailbox": "INBOX",
-      "content": "Subject: Meeting Confirmation - Project Alpha\n\nHi George and Hanna,\n\nThis confirms our meeting tomorrow at 2 PM to discuss Project Alpha.\n\nSee you then,\nMeeting Scheduler",
+      "plain_text": "Subject: Meeting Confirmation - Project Alpha\n\nHi George and Hanna,\n\nThis confirms our meeting tomorrow at 2 PM to discuss Project Alpha.\n\nSee you then,\nMeeting Scheduler",
       "date_received": "2025-04-05T12:00:00",
       "date_sent": "2025-04-05T11:55:00",
       "deleted_status": false,
@@ -408,9 +408,9 @@
       "flagged": true
     },
     {
-      "id": 25,
+      "uid": 25,
       "mailbox": "sent",
-      "content": "Subject: Issue with Account Login\n\nDear Support Team,\n\nI am experiencing trouble logging into my account. I have tried resetting my password, but the issue persists. Could you please assist me?\n\nMy username is: [YOUR USERNAME]\n\nThank you,\nNoah",
+      "plain_text": "Subject: Issue with Account Login\n\nDear Support Team,\n\nI am experiencing trouble logging into my account. I have tried resetting my password, but the issue persists. Could you please assist me?\n\nMy username is: [YOUR USERNAME]\n\nThank you,\nNoah",
       "date_received": "2025-04-06T10:15:00",
       "date_sent": "2025-04-06T10:10:00",
       "deleted_status": false,
@@ -425,9 +425,9 @@
       "flagged": false
     },
     {
-      "id": 26,
+      "uid": 26,
       "mailbox": "INBOX",
-      "content": "Subject: Re: Issue with Account Login\n\nDear Noah,\n\nThank you for contacting our support team. We have received your request and will investigate the login issue. Please expect a follow-up within 24 hours.\n\nSincerely,\nSupport Team\n\nOn 2025-04-06 (noah@user.com) sent:\nSubject: Issue with Account Login\n\nDear Support Team,\n\nI am experiencing trouble logging into my account. I have tried resetting my password, but the issue persists. Could you please assist me?\n\nMy username is: [YOUR USERNAME]\n\nThank you,\nNoah",
+      "plain_text": "Subject: Re: Issue with Account Login\n\nDear Noah,\n\nThank you for contacting our support team. We have received your request and will investigate the login issue. Please expect a follow-up within 24 hours.\n\nSincerely,\nSupport Team\n\nOn 2025-04-06 (noah@user.com) sent:\nSubject: Issue with Account Login\n\nDear Support Team,\n\nI am experiencing trouble logging into my account. I have tried resetting my password, but the issue persists. Could you please assist me?\n\nMy username is: [YOUR USERNAME]\n\nThank you,\nNoah",
       "date_received": "2025-04-06T14:00:00",
       "date_sent": "2025-04-06T13:55:00",
       "deleted_status": false,
@@ -442,9 +442,9 @@
       "flagged": false
     },
     {
-      "id": 27,
+      "uid": 27,
       "mailbox": "INBOX",
-      "content": "Subject: The Weekly Tech Times - Issue #42\n\nIn this week's newsletter: Latest tech news, upcoming gadgets, and insightful articles.\n\n[LINK TO NEWSLETTER]",
+      "plain_text": "Subject: The Weekly Tech Times - Issue #42\n\nIn this week's newsletter: Latest tech news, upcoming gadgets, and insightful articles.\n\n[LINK TO NEWSLETTER]",
       "date_received": "2025-04-07T08:00:00",
       "date_sent": "2025-04-07T07:55:00",
       "deleted_status": false,
@@ -459,9 +459,9 @@
       "flagged": false
     },
     {
-      "id": 28,
+      "uid": 28,
       "mailbox": "INBOX",
-      "content": "Subject: Out of Office Auto-Reply\n\nI will be out of the office from April 8th to April 12th and will have limited access to email. For urgent matters, please contact my colleague, Olivia (olivia@work.com).\n\nThank you for your understanding.\n\nBest regards,\nPeter",
+      "plain_text": "Subject: Out of Office Auto-Reply\n\nI will be out of the office from April 8th to April 12th and will have limited access to email. For urgent matters, please contact my colleague, Olivia (olivia@work.com).\n\nThank you for your understanding.\n\nBest regards,\nPeter",
       "date_received": "2025-04-08T09:00:00",
       "date_sent": "2025-04-08T08:55:00",
       "deleted_status": false,

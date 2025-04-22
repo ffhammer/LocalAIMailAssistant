@@ -10,9 +10,10 @@ from loguru import logger
 from src.imap.ImapClientInterface import ImapClientInterface
 
 from ..accounts.accounts_loading import AccountSettings
-from ..models.message import MailMessage, parse_processed_email
+from ..models.message import Attachment, MailMessage
 from ..settings import ImapSettings, Settings
 from .flags import MailFlag, parse_all_flags, parse_flags_filtered
+from .parse_mails import parse_message
 
 
 class RealIMAPClient(ImapClientInterface):
@@ -105,8 +106,8 @@ class RealIMAPClient(ImapClientInterface):
         return [int(uid) for uid in data[0].split()]
 
     def fetch_email_by_uid(
-        self, uid: int, mailbox: str = "INBOX"
-    ) -> Optional[MailMessage]:
+        self, uid: int, mailbox: str
+    ) -> Optional[tuple[MailMessage, list[Attachment]]]:
         if self.connection is None:
             raise PermissionError("You need to call the server as a context")
         self._select(mailbox)
@@ -118,7 +119,8 @@ class RealIMAPClient(ImapClientInterface):
         if result != "OK" or not data or not isinstance(data[0], tuple):
             return None
         msg = email.message_from_bytes(data[0][1], policy=default)
-        return parse_processed_email(msg, mailbox, uid)
+
+        return parse_message(msg, mailbox, uid)
 
     def list_mailboxes(self) -> list[str]:
         def _list_collections():
@@ -164,11 +166,11 @@ class RealIMAPClient(ImapClientInterface):
 
     def _get_existing_flags(self, mail: MailMessage) -> set[MailFlag]:
         def _fetch_uids():
-            return self.connection.uid("FETCH", str(mail.id), "(FLAGS)")
+            return self.connection.uid("FETCH", str(mail.uid), "(FLAGS)")
 
         typ, data = self._retry(_fetch_uids)
         self._raise_on_status(
-            typ, f"can't fetch mail with uid {mail.id} in mailbox {mail.mailbox}"
+            typ, f"can't fetch mail with uid {mail.uid} in mailbox {mail.mailbox}"
         )
 
         val = parse_all_flags(data)
@@ -183,17 +185,19 @@ class RealIMAPClient(ImapClientInterface):
 
         formatted_flags = f"({' '.join(flags_to_remove)})"
         logger.debug(
-            f"Removing flags {formatted_flags} for UID {mail.id} in mailbox '{mail.mailbox}'"
+            f"Removing flags {formatted_flags} for UID {mail.uid} in mailbox '{mail.mailbox}'"
         )
 
         def _minus_flags():
-            return self.connection.uid("STORE", str(mail.id), "-FLAGS", formatted_flags)
+            return self.connection.uid(
+                "STORE", str(mail.uid), "-FLAGS", formatted_flags
+            )
 
         store_status, response = self._retry(_minus_flags)
 
         self._raise_on_status(
             store_status,
-            f"Failed to remove flags for UID {mail.id}. Server response: {response}",
+            f"Failed to remove flags for UID {mail.uid}. Server response: {response}",
         )
 
     def _add_flags(self, mail: MailMessage, flags_to_add: set[MailFlag]) -> None:
@@ -202,16 +206,18 @@ class RealIMAPClient(ImapClientInterface):
 
         formatted_flags = f"({' '.join(flags_to_add)})"
         logger.info(
-            f"Adding flags {formatted_flags} for UID {mail.id} in mailbox '{mail.mailbox}'"
+            f"Adding flags {formatted_flags} for UID {mail.uid} in mailbox '{mail.mailbox}'"
         )
 
         def _add_flags():
-            return self.connection.uid("STORE", str(mail.id), "+FLAGS", formatted_flags)
+            return self.connection.uid(
+                "STORE", str(mail.uid), "+FLAGS", formatted_flags
+            )
 
         store_status, response = self._retry(_add_flags)
         self._raise_on_status(
             store_status,
-            f"Failed to add flags for UID {mail.id}. Server response: {response}",
+            f"Failed to add flags for UID {mail.uid}. Server response: {response}",
         )
 
     def update_flags(self, mail: MailMessage):
@@ -222,7 +228,7 @@ class RealIMAPClient(ImapClientInterface):
         """
         # Select the mailbox (MUST NOT be readonly for STORE)
         logger.debug(
-            f"Selecting mailbox '{mail.mailbox}' for flag update (UID: {mail.id})"
+            f"Selecting mailbox '{mail.mailbox}' for flag update (UID: {mail.uid})"
         )
         self._select(mailbox=mail.mailbox, readonly=False)
 
@@ -243,5 +249,5 @@ class RealIMAPClient(ImapClientInterface):
         self._add_flags(mail=mail, flags_to_add=flags_to_add)
 
         logger.debug(
-            f"Successfully updated flags for UID {mail.id} to {desired_flags}."
+            f"Successfully updated flags for UID {mail.uid} to {desired_flags}."
         )

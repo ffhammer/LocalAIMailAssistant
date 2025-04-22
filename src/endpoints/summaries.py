@@ -9,7 +9,7 @@ from ..models import (
     JOB_TYPE,
     EmailSummarySQL,
     JobStatusSQL,
-    MailMessageSQL,
+    MailMessage,
 )
 
 router = APIRouter(tags=["Summaries"])
@@ -25,7 +25,7 @@ def get_email_summaries(
 
     db = context.dbs[account_id]
     return db.query_email_ids(
-        MailMessageSQL.message_id.in_(select(EmailSummarySQL.email_message_id))
+        MailMessage.message_id.in_(select(EmailSummarySQL.email_message_id))
     )
 
 
@@ -69,7 +69,7 @@ def generate_email_summaries(account_id: str):
         raise HTTPException(status_code=404, detail="Account not found")
 
     missing_ids: List[str] = context.dbs[account_id].query_email_ids(
-        ~MailMessageSQL.message_id.in_(select(EmailSummarySQL.email_message_id)),
+        ~MailMessage.message_id.in_(select(EmailSummarySQL.email_message_id)),
     )
 
     for msg_id in missing_ids:

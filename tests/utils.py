@@ -30,7 +30,7 @@ def test_app(temp_test_dir: str) -> Application:
 def save_mails(test_app: Application, mails: list[MailMessage]):
     db = test_app.context.dbs["test"]
     for mail in mails:
-        db.save_email(mail)
+        db.add_value(mail)
 
 
 def check_job_status(test_app: Application, **filters) -> list[JobStatus]:

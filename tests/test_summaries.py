@@ -49,7 +49,7 @@ def test_queue_summary_job_via_generate_endpoint(test_app):
                         ChatEntry(
                             author=email.sender,
                             date_sent=email.date_sent,
-                            entry_content=email.content,
+                            entry_content=email.plain_text,
                         )
                     ],
                     authors=[email.sender],

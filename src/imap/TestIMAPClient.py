@@ -7,7 +7,7 @@ from loguru import logger
 from src.accounts.accounts_loading import AccountSettings
 from src.imap.flags import MailFlag
 from src.imap.ImapClientInterface import ImapClientInterface
-from src.models.message import MailMessage
+from src.models.message import Attachment, MailMessage
 from src.settings import ImapSettings, Settings
 
 
@@ -53,7 +53,7 @@ class TestIMAPClient(ImapClientInterface):
         if mailbox not in self.mailboxes:
             self.mailboxes[mailbox] = []
         for message in messages:
-            uid = message.id  # Assuming unique identifier is in Id
+            uid = message.uid  # Assuming unique identifier is in Id
             self.messages[uid] = message
             self.mailboxes[mailbox].append(uid)
 
@@ -77,12 +77,12 @@ class TestIMAPClient(ImapClientInterface):
 
     def fetch_email_by_uid(
         self, uid: int, mailbox: str = "INBOX"
-    ) -> Optional[MailMessage]:
+    ) -> Optional[tuple[MailMessage, list[Attachment]]]:
         time.sleep(0.1)
 
         if mailbox not in self.mailboxes or uid not in self.mailboxes[mailbox]:
             return None
-        return self.messages.get(uid)
+        return self.messages.get(uid), []
 
     def list_mailboxes(self) -> list[str]:
         return list(self.mailboxes.keys())
@@ -111,7 +111,7 @@ class TestIMAPClient(ImapClientInterface):
         Update the flags for a message in the test data storage.
         This directly modifies the stored MailMessage object.
         """
-        stored_message = self.messages[mail.id]
+        stored_message = self.messages[mail.uid]
 
         # Update the stored message's flags
         updated = False
@@ -127,5 +127,5 @@ class TestIMAPClient(ImapClientInterface):
 
         if updated:
             logger.debug(
-                f"TestClient: Updated flags for UID {mail.id} to seen={mail.seen}, answered={mail.answered}, flagged={mail.flagged}"
+                f"TestClient: Updated flags for UID {mail.uid} to seen={mail.seen}, answered={mail.answered}, flagged={mail.flagged}"
             )

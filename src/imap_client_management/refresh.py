@@ -4,7 +4,7 @@ from typing import List
 from loguru import logger
 from sqlmodel import Session, select
 
-from src.database.mail_db import MailDB, MailMessageSQL
+from src.database.mail_db import MailDB, MailMessage
 from src.event_bus import Event, EventBus, EventCategories, EventTypes
 from src.imap import IMAPClient
 from src.imap.ImapClientInterface import ImapClientInterface
@@ -29,23 +29,25 @@ async def refresh_mailbox(
 
         with Session(db.engine) as session:
             already_saved = session.exec(
-                select(MailMessageSQL.imap_uid).where(MailMessageSQL.mailbox == mailbox)
+                select(MailMessage.uid).where(MailMessage.mailbox == mailbox)
             ).all()
 
         # Determine which UIDs need to be fetched.
         to_fetch: List[int] = list(set(new_mail_ids).difference(already_saved))
-        logger.info(f"Mailbox '{mailbox}': new UIDs to fetch: {to_fetch}")
+        logger.info(f"Mailbox '{mailbox}': {len(to_fetch)} new UIDs to fetch")
 
-        for uid in to_fetch:
+        for uid in to_fetch[:20]:
             # Offload the blocking fetch operation.
             try:
-                mail = await asyncio.to_thread(client.fetch_email_by_uid, uid, mailbox)
-                if mail is None:
+                value = await asyncio.to_thread(client.fetch_email_by_uid, uid, mailbox)
+                if value is None:
                     logger.error(f"Can't fetch mail with UID {uid}")
                     continue
+
                 logger.debug(f"Fetched mail UID {uid} from '{mailbox}'. Saving...")
-                # Save mail using a blocking call offloaded to a thread.
-                await asyncio.to_thread(db.save_email, mail)
+
+                mail, attachments = value
+                await asyncio.to_thread(db.save_mail, mail, attachments)
             except Exception:
                 logger.exception(f"saving mail with {uid} failed for {mailbox}")
 
@@ -58,6 +60,7 @@ async def refresh_mailbox(
         )
         await event_bus.publish(event)
         logger.info(f"Mailbox '{mailbox}' refreshed and event published.")
+
     except Exception as e:
         await event_bus.publish(
             Event(
@@ -104,7 +107,7 @@ async def delete_mailbox(db: MailDB, client: ImapClientInterface, mailbox: str) 
         logger.info(f"Deleting mailbox '{mailbox}' locally.")
 
         def _del_records():
-            db.delete_records(MailMessageSQL, MailMessageSQL.mailbox == mailbox)
+            db.delete_records(MailMessage, MailMessage.mailbox == mailbox)
 
         await asyncio.to_thread(_del_records)
         await event_bus.publish(
@@ -140,7 +143,7 @@ async def sync_account(db: MailDB) -> None:
         priorities = {db.account.imap_inbox_folder: 0, db.account.imap_sent_folder: 1}
         return sorted(mailboxes, key=lambda m: priorities.get(m, 2))
 
-    last_mailboxes = {mail.mailbox for mail in db.query_table(MailMessageSQL)}
+    last_mailboxes = {mail.mailbox for mail in db.query_table(MailMessage)}
     with IMAPClient(account=db.account, settings=db.settings) as client:
         current_mailboxes = set(client.list_mailboxes())
 

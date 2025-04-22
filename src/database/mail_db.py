@@ -1,24 +1,22 @@
-import os
-from datetime import datetime, timedelta
-from hashlib import sha1
 from pathlib import Path
 from typing import List, Optional, TypeVar
 
 from loguru import logger
 from result import Err, Ok, Result
+from sqlalchemy.orm import joinedload
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from src.models import (
+    Attachment,
     EmailChat,
     EmailChatSQL,
     EmailDraftSQL,
     EmailSummarySQL,
     MailFlag,
+    MailHeader,
     MailMessage,
-    MailMessageSQL,
     UpdateStatus,
     sql_email_chat_to_email_chat,
-    sql_message_to_standard_message,
 )
 
 from ..accounts.accounts_loading import AccountSettings
@@ -38,9 +36,6 @@ class MailDB:
         self.path = Path(base_dir) / account.name
         self.path.mkdir(parents=True, exist_ok=True)
 
-        self.contents_folder = self.path / "contents"
-        self.contents_folder.mkdir(exist_ok=True)
-
         self.db_path = self.path / "mail.db"
         self.last_update_info = self.path / "update_info.json"
         self.engine = create_engine(f"sqlite:///{self.db_path}", echo=False)
@@ -49,7 +44,7 @@ class MailDB:
     def query_first_item(
         self, table: TABLE_TYPE, *where_clauses
     ) -> Optional[TABLE_TYPE]:
-        with Session(self.engine) as session:
+        with Session(self.engine, expire_on_commit=False) as session:
             statement = select(table)
             for clause in where_clauses:
                 statement = statement.where(clause)
@@ -57,17 +52,25 @@ class MailDB:
             return session.exec(statement=statement).first()
 
     def add_values(self, values: list[TABLE_TYPE]) -> None:
-        with Session(self.engine) as session:
+        with Session(self.engine, expire_on_commit=False) as session:
             session.add_all(values)
             session.commit()
 
     def add_value(self, value: TABLE_TYPE) -> None:
-        with Session(self.engine) as session:
+        with Session(self.engine, expire_on_commit=False) as session:
             session.add(value)
             session.commit()
 
+    def save_mail(self, mail: MailMessage, attachments: list[Attachment] = []):
+        with Session(self.engine, expire_on_commit=False) as session:
+            session.add(mail)
+            for attachment in attachments:
+                attachment.email = mail
+                session.add(attachment)
+            session.commit()
+
     def query_table(self, table_model: SQLModel, *where_clauses) -> List[SQLModel]:
-        with Session(self.engine) as session:
+        with Session(self.engine, expire_on_commit=False) as session:
             statement = select(table_model)
             for clause in where_clauses:
                 statement = statement.where(clause)
@@ -90,72 +93,40 @@ class MailDB:
         except Exception as exc:
             logger.exception(f"Failed to save the status: {exc}")
 
-    def save_email(self, email_obj: MailMessage):
-        content_sha = sha1(str(email_obj.message_id).encode()).hexdigest()
-        content_file = self.contents_folder / content_sha
-
-        if not content_file.exists():
-            with open(content_file, "w", encoding="utf-8") as f:
-                f.write(email_obj.content)
-
-        if (
-            self.query_first_item(
-                MailMessageSQL, MailMessageSQL.message_id == email_obj.message_id
-            )
-            is not None
-        ):
-            logger.warning(
-                f"Email with Message_ID {email_obj.message_id} already saved."
-            )
-            return None
-
-        self.add_value(
-            MailMessageSQL(
-                mailbox=email_obj.mailbox,
-                content_file=str(content_file),
-                date_received=email_obj.date_received,
-                date_sent=email_obj.date_sent,
-                deleted_status=email_obj.deleted_status,
-                junk_mail_status=email_obj.junk_mail_status,
-                message_id=email_obj.message_id,
-                reply_to=email_obj.reply_to,
-                sender=email_obj.sender,
-                subject=email_obj.subject,
-                was_replied_to=email_obj.was_replied_to,
-                imap_uid=email_obj.id,
-                seen=email_obj.seen,
-                answered=email_obj.answered,
-                flagged=email_obj.flagged,
-            )
-        )
-
     def get_email_by_message_id(self, email_id: str) -> Optional[MailMessage]:
-        val = self.query_first_item(
-            MailMessageSQL, MailMessageSQL.message_id == email_id
-        )
-        return None if val is None else sql_message_to_standard_message(val)
+        with Session(self.engine, expire_on_commit=False) as session:
+            statement = (
+                select(MailMessage)
+                .where(MailMessage.message_id == email_id)
+                .options(joinedload(MailMessage.attachments))
+            )
 
-    def query_emails(self, *where_clauses) -> List[MailMessage]:
-        mails = self.query_table(MailMessageSQL, *where_clauses)
-        return [sql_message_to_standard_message(mail) for mail in mails]
+            return session.exec(statement=statement).first()
+
+    def query_email_headers(self, *where_clauses) -> List[MailHeader]:
+        with Session(self.engine, expire_on_commit=False) as session:
+            stmt = select(
+                MailMessage.message_id,
+                MailMessage.sender,
+                MailMessage.subject,
+                MailMessage.date_sent,
+                MailMessage.date_received,
+                MailMessage.mailbox,
+                MailMessage.seen,
+                MailMessage.answered,
+                MailMessage.flagged,
+                MailMessage.deleted_status,
+                MailMessage.was_replied_to,
+                MailMessage.junk_mail_status,
+                MailMessage.deleted_status,
+            )
+            for clause in where_clauses:
+                stmt = stmt.where(clause)
+            rows = session.exec(stmt).mappings().all()
+        return [MailHeader.model_validate(row) for row in rows]
 
     def query_email_ids(self, *where_clauses) -> List[str]:
-        return list(self.query_table(MailMessageSQL.message_id, *where_clauses))
-
-    def clean_old_emails(self, keep_days: int = 93) -> None:
-        cutoff = datetime.now() - timedelta(days=keep_days)
-        with Session(self.engine) as session:
-            statement = select(MailMessageSQL).where(MailMessageSQL.date_sent < cutoff)
-            old_emails = session.exec(statement).all()
-            for email_obj in old_emails:
-                content_path = Path(email_obj.content_file)
-                try:
-                    if content_path.exists():
-                        os.remove(content_path)
-                except Exception as e:
-                    logger.error(f"Error deleting {content_path}: {e}")
-                session.delete(email_obj)
-            session.commit()
+        return list(self.query_table(MailMessage.message_id, *where_clauses))
 
     def get_mail_summary(self, email_id: str) -> Optional[str]:
         summary: Optional[EmailSummarySQL] = self.query_first_item(
@@ -172,7 +143,7 @@ class MailDB:
         if mail.reply_to is None:
             return Ok(generate_default_chat(mail))
 
-        with Session(self.engine) as session:
+        with Session(self.engine, expire_on_commit=False) as session:
             statement = select(EmailChatSQL).where(
                 EmailChatSQL.email_message_id == email_id
             )
@@ -186,28 +157,21 @@ class MailDB:
         return Ok(sql_email_chat_to_email_chat(chat))
 
     def delete_records(self, table_model: SQLModel, *where_clauses) -> None:
-        with Session(self.engine) as session:
+        with Session(self.engine, expire_on_commit=False) as session:
             stmt = select(table_model)
             for clause in where_clauses:
                 stmt = stmt.where(clause)
             records = session.exec(stmt).all()
             for record in records:
-                if hasattr(record, "content_file"):
-                    content_path = Path(record.content_file)
-                    if content_path.exists():
-                        try:
-                            os.remove(content_path)
-                        except Exception as exc:
-                            logger.error(f"Error deleting {content_path}: {exc}")
                 session.delete(record)
             session.commit()
 
     def update_flags(self, data: dict[str, tuple[MailFlag]], mailbox) -> None:
         for uid, flags in data.items():
-            mails: list[MailMessageSQL] = self.query_table(
-                MailMessageSQL,
-                MailMessageSQL.mailbox == mailbox,
-                MailMessageSQL.imap_uid == uid,
+            mails: list[MailMessage] = self.query_table(
+                MailMessage,
+                MailMessage.mailbox == mailbox,
+                MailMessage.uid == uid,
             )
 
             if len(mails) == 0:
@@ -223,7 +187,7 @@ class MailDB:
                 mail.answered = MailFlag.Answered in flags
                 mail.flagged = MailFlag.Flagged in flags
 
-            with Session(self.engine) as session:
+            with Session(self.engine, expire_on_commit=False) as session:
                 for mail in mails:
                     session.add(mail)
                 session.commit()
@@ -231,8 +195,8 @@ class MailDB:
     def toggle_flag(
         self, email_message_id: str, flag: MailFlag
     ) -> Result[MailMessage, str]:
-        mail: MailMessageSQL = self.query_first_item(
-            MailMessageSQL, MailMessageSQL.message_id == email_message_id
+        mail: MailMessage = self.query_first_item(
+            MailMessage, MailMessage.message_id == email_message_id
         )
 
         if mail is None:
@@ -244,8 +208,10 @@ class MailDB:
             mail.seen = not mail.seen
         if flag == MailFlag.Flagged:
             mail.flagged = not mail.flagged
+        if flag == MailFlag.Deleted:
+            mail.deleted_status = not mail.deleted_status
 
-        with Session(self.engine) as session:
+        with Session(self.engine, expire_on_commit=False) as session:
             session.add(mail)
             session.commit()
 

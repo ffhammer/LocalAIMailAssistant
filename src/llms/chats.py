@@ -20,7 +20,7 @@ def generate_default_chat(message: MailMessage) -> EmailChat:
             ChatEntry(
                 author=message.sender,
                 date_sent=message.date_sent,
-                entry_content=message.content,
+                entry_content=message.plain_text,
             )
         ]
     )
@@ -42,4 +42,4 @@ def generate_email_chat_with_llm(message: MailMessage, settings: Settings) -> Em
     )
 
     chain = prompt | model | parser
-    return chain.invoke({"mail_content": message.content})
+    return chain.invoke({"mail_content": message.plain_text})
